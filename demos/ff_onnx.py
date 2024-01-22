@@ -6,6 +6,8 @@ from flexflow.onnx.model import ONNXModel
 from PIL import Image
 import numpy as np
 
+import argparse, json
+
 
 def top_level_task():
     ffconfig = FFConfig()
@@ -18,7 +20,7 @@ def top_level_task():
     dims_input = [ffconfig.batch_size, 3, 229, 229]
     input_tensor = ffmodel.create_tensor(dims_input, DataType.DT_FLOAT)
 
-    onnx_model = ONNXModel("alexnet.onnx")
+    onnx_model = ONNXModel("alexnet_Opset16.onnx")
     _t = onnx_model.apply(ffmodel, {"input.1": input_tensor})
 
     ffoptimizer = SGDOptimizer(ffmodel, 0.01)
@@ -73,5 +75,19 @@ def top_level_task():
 
 
 if __name__ == "__main__":
-    print("alexnet onnx")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-a", "--test_acc",
+                        action="store_true", help="Test accuracy flag")
+    parser.add_argument(
+        "-config-file",
+        help="The path to a JSON file with the configs. If omitted, a sample model and configs will be used instead.",
+        type=str,
+        default=None,
+    )
+    args, unknown = parser.parse_known_args()
+    configs_dict = None
+    if args.config_file is not None:
+        with open(args.config_file) as f:
+            configs_dict = json.load(f)
+    init_flexflow_runtime(configs_dict)
     top_level_task()
