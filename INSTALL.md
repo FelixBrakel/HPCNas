@@ -1,9 +1,3 @@
----
-tags:
-  - "#flexflow"
-links: 
-type: documentation
----
 # Overview
 The goal of this guide is to get an installation of flexflow with the following goals:
  - Without using root privileges

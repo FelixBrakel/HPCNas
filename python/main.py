@@ -11,7 +11,9 @@ from naslib.optimizers import DARTSOptimizer, RegularizedEvolution, DrNASOptimiz
 from naslib.search_spaces import (NasBench201SearchSpace, SimpleCellSearchSpace,
                                   NasBench301SearchSpace, NasBench101SearchSpace)
 from naslib.search_spaces.core.graph import Graph
+from search_space.ff_compat import FFCompatCellSearchSpace
 from naslib.utils import setup_logger
+
 
 def nas() -> Graph:
     config = utils.get_config_from_args()
@@ -27,7 +29,7 @@ def nas() -> Graph:
     optimizer = DARTSOptimizer(**config.search)
 
     # search_space = SimpleCellSearchSpace(channels=[3, 16])
-    search_space = SimpleCellSearchSpace(channels=[3, 64])
+    search_space = FFCompatCellSearchSpace()
     # dataset_api = utils.get_dataset_api(config.search_space, config.dataset)
     # adapt the search space to the optimizer type
     optimizer.adapt_search_space(search_space, config.dataset)
