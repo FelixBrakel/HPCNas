@@ -36,7 +36,12 @@ def main():
     config.save_arch_weights = False
     model = nas(config)
     model.eval()
-    torch.set_default_device('cuda')
+    if torch.cuda.is_available():
+        torch.set_default_device('cuda')
+    else:
+        print("No CUDa found, quitting")
+        return -1
+
     input = torch.randn(1, 3, 32, 32)
     out = model(input)
     torch.onnx.export(model, input, "arch2.onnx")

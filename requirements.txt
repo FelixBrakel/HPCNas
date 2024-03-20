@@ -16,5 +16,3 @@ onnx
 transformers>=4.30.0
 sentencepiece
 einops
-seaborn==0.13.2
-tornado==6.4
