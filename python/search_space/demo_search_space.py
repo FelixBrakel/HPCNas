@@ -92,7 +92,8 @@ class CellB(Graph):
         self.add_edge(
             in_node, s2_1,
             op=[
-                ops.ConvBnReLU
+                ops.ConvBnReLU,
+                FactorizedReduce
             ],
             C_in=1088, C_out=128, kernel_size=1
         )
@@ -101,7 +102,8 @@ class CellB(Graph):
         self.add_edge(
             s2_1, s2_2,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=128, C_out=160, kernel_size=(1, 7), stride=1, padding=(0, 3)
         )
@@ -110,7 +112,8 @@ class CellB(Graph):
         self.add_edge(
             s2_2, concat,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=160, C_out=192, kernel_size=(7, 1), stride=1, padding=(3, 0)
         )
@@ -118,7 +121,8 @@ class CellB(Graph):
         self.add_edge(
             in_node, concat,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=1088, C_out=192, kernel_size=1, padding=0
         )
@@ -141,7 +145,8 @@ class CellC(Graph):
         self.add_edge(
             in_node, s2_1,
             op=[
-                ops.ConvBnReLU
+                ops.ConvBnReLU,
+                FactorizedReduce
             ],
             C_in=2080, C_out=192, kernel_size=1
         )
@@ -150,7 +155,8 @@ class CellC(Graph):
         self.add_edge(
             s2_1, s2_2,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=192, C_out=224, kernel_size=(1, 3), stride=1, padding=(0, 1)
         )
@@ -159,7 +165,8 @@ class CellC(Graph):
         self.add_edge(
             s2_2, concat,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=224, C_out=256, kernel_size=(3, 1), stride=1, padding=(1, 0)
         )
@@ -167,7 +174,8 @@ class CellC(Graph):
         self.add_edge(
             in_node, concat,
             op=[
-                Conv2d
+                Conv2d,
+                FactorizedReduce
             ],
             C_in=2080, C_out=192, kernel_size=1, padding=0
         )
@@ -307,86 +315,6 @@ class DemoSpace(Graph):
             input_idx = output_node
 
         return output_node
-
-    @staticmethod
-    def construct_cell_stage_1() -> Graph:
-        cell = Graph()
-        cell.name = "cell"
-
-        # input node
-        input_node = cell.append_node()
-
-        # 3 strands
-        concat_node = cell.append_node(comb_op=lambda tensors: torch.cat(tensors, dim=1))
-        s2 = cell.append_node()
-        s3_1 = cell.append_node()
-
-        cell.add_edges_from(
-            [(
-                input_node,
-                s,
-                EdgeData(data={
-                    'op': [
-                        ops.ConvBnReLU,
-                        FactorizedReduce
-                    ],
-                    'C_in': 64,
-                    'C_out': 32,
-                    'kernel_size': 1,
-                    'stride': 1,
-                    'affine': False,
-                    'track_running_stats': False
-                })
-            ) for s in [concat_node, s2, s3_1]]
-        )
-
-        # strand 3 has 3 conv layers
-        s3_2 = cell.append_node()
-        cell.add_edge(
-            s3_1, s3_2,
-            op=[
-                ops.ConvBnReLU,
-                FactorizedReduce
-            ],
-            C_in=32, C_out=48, kernel_size=3, stride=1, affine=False, track_running_stats=False
-        )
-
-        # All strands lead to the post node
-        cell.add_edge(
-            s2,
-            concat_node,
-            op=[
-                ops.ConvBnReLU,
-                FactorizedReduce
-            ],
-            C_in=32, C_out=32, kernel_size=3, stride=1, affine=False, track_running_stats=False
-        )
-        cell.add_edge(
-            s3_2,
-            concat_node,
-            op=[
-                ops.ConvBnReLU,
-                FactorizedReduce
-            ],
-            C_in=48, C_out=64, kernel_size=3, stride=1, affine=False, track_running_stats=False
-        )
-
-        out = cell.append_node()
-
-        cell.add_edge_final(
-            concat_node,
-            out,
-            op=ConvMul(128, 64, 1, 1)
-        )
-        return cell
-
-    @staticmethod
-    def construct_cell_stage_2() -> Graph:
-        pass
-
-    @staticmethod
-    def construct_cell_stage_3() -> Graph:
-        pass
 
     def prepare_discretization(self):
         pass
