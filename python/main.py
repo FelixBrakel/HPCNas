@@ -31,8 +31,8 @@ def nas(config) -> Graph:
 
 def main():
     config = utils.get_config_from_args()
-    config.search.epochs = 2
-    config.evaluation.epochs = 4
+    config.search.epochs = 1
+    config.evaluation.epochs = 1
     config.save_arch_weights = False
     model = nas(config)
     model.eval()
