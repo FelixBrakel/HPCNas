@@ -33,10 +33,11 @@ def main():
     config = utils.get_config_from_args()
     config.search.epochs = 2
     config.evaluation.epochs = 4
+    config.save_arch_weights = False
     model = nas(config)
-    # model.eval()
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    input = torch.randn(1, 3, 32, 32, device='cuda')
+    model.eval()
+    torch.set_default_device('cuda')
+    input = torch.randn(1, 3, 32, 32)
     out = model(input)
     torch.onnx.export(model, input, "arch2.onnx")
 

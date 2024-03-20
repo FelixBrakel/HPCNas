@@ -62,7 +62,7 @@ class FactorizedReduce(ops.AbstractPrimitive):
     If the resolution matches it resolves to identity
     """
 
-    def __init__(self, C_in, C_out, stride, affine, track_running_stats, **kwargs):
+    def __init__(self, C_in, C_out, stride=1, affine=False, track_running_stats=False, **kwargs):
         super().__init__(locals())
         self.stride = stride
         self.C_in = C_in
