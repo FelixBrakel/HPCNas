@@ -34,14 +34,16 @@ def main():
     config.search.epochs = 1
     config.evaluation.epochs = 1
     config.save_arch_weights = False
-    model = nas(config)
-    model.eval()
     if torch.cuda.is_available():
-        torch.set_default_device('cuda')
+        print("Found CUDA")
     else:
-        print("No CUDa found, quitting")
+        print("No CUDA found, quitting")
         return -1
-
+    model = nas(config)
+#    model.eval()
+    
+    torch.set_default_device('cuda')
+    else:
     input = torch.randn(1, 3, 32, 32)
     out = model(input)
     torch.onnx.export(model, input, "arch2.onnx")
