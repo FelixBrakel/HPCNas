@@ -43,7 +43,6 @@ def main():
 #    model.eval()
     
     torch.set_default_device('cuda')
-    else:
     input = torch.randn(1, 3, 32, 32)
     out = model(input)
     torch.onnx.export(model, input, "arch2.onnx")
