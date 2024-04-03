@@ -31,8 +31,8 @@ def nas(config) -> Graph:
 
 def main():
     config = utils.get_config_from_args()
-    config.search.epochs = 1
-    config.evaluation.epochs = 1
+    config.search.epochs = 10
+    config.evaluation.epochs = 10
     config.save_arch_weights = False
     if torch.cuda.is_available():
         print("Found CUDA")
