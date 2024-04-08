@@ -1,4 +1,4 @@
-dataset: cifar100
+dataset: cifar10
 seed: 99
 search_space: nasbench201
 out_dir: run
@@ -75,10 +75,10 @@ evaluation:
   checkpoint_freq: 30
   batch_size: 96
   learning_rate: 0.025
-  learning_rate_min: 0.00
+  learning_rate_min: 0.0
   momentum: 0.9
   weight_decay: 0.0003
-  epochs: 20
+  epochs: 0
   warm_start_epochs: 0
   grad_clip: 5
   train_portion: 1.
