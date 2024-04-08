@@ -31,8 +31,8 @@ def nas(config) -> Graph:
 
 def main():
     config = utils.get_config_from_args()
-    config.search.epochs = 10
-    config.evaluation.epochs = 10
+    # config.search.epochs = 10
+    # config.evaluation.epochs = 10
     config.save_arch_weights = False
     if torch.cuda.is_available():
         print("Found CUDA")
@@ -42,10 +42,10 @@ def main():
     model = nas(config)
 #    model.eval()
     
-    torch.set_default_device('cuda')
-    input = torch.randn(1, 3, 32, 32)
-    out = model(input)
-    torch.onnx.export(model, input, "arch2.onnx")
+    # torch.set_default_device('cuda')
+    # input = torch.randn(1, 3, 32, 32)
+    # out = model(input)
+    # torch.onnx.export(model, input, "arch2.onnx")
 
 
 if __name__ == '__main__':
