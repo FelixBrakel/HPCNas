@@ -1,4 +1,4 @@
-dataset: cifar10
+dataset: cifar100
 seed: 99
 search_space: nasbench201
 out_dir: run
@@ -11,7 +11,7 @@ search:
   learning_rate_min: 0.001
   momentum: 0.9
   weight_decay: 0.0003
-  epochs: 50
+  epochs: 1
   warm_start_epochs: 0
   grad_clip: 5
   train_portion: 0.5
@@ -78,7 +78,7 @@ evaluation:
   learning_rate_min: 0.00
   momentum: 0.9
   weight_decay: 0.0003
-  epochs: 600
+  epochs: 20
   warm_start_epochs: 0
   grad_clip: 5
   train_portion: 1.
