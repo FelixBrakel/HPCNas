@@ -8,7 +8,7 @@ from naslib.search_spaces.core.graph import Graph
 from search_space.demo_search_space import DemoSpace
 from naslib.utils import setup_logger
 import onnx
-
+from torch.profiler import profile, record_function, ProfilerActivity
 
 def nas(config) -> Graph:
     utils.set_seed(config.seed)
@@ -39,7 +39,12 @@ def main():
     else:
         print("No CUDA found, quitting")
         return -1
-    model = nas(config)
+
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        _ = nas(config)
+
+    prof.export_chrome_trace("trace.json")
+#    model = nas(config)
 #    model.eval()
     
     # torch.set_default_device('cuda')

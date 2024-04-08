@@ -211,7 +211,7 @@ class DemoSpace(Graph):
         stem = self.append_node()
         self.add_edge_final(input_node, stem, op=ops.Stem(3, 320))
 
-        s1_output = self.add_par_cell_with_skip(CellA(), stem, "s1", 5, 2)
+        s1_output = self.add_par_cell_with_skip(CellA(), stem, "s1", 2, 2)
 
         reduce_a = self.append_node()
 
@@ -220,7 +220,7 @@ class DemoSpace(Graph):
             op=Reduction_A(320, 256, 256, 384, 384)
         )
 
-        s2_output = self.add_par_cell_with_skip(CellB(), reduce_a, "s2", 10, 2)
+        s2_output = self.add_par_cell_with_skip(CellB(), reduce_a, "s2", 4, 2)
 
         reduce_b = self.append_node()
 
@@ -229,7 +229,7 @@ class DemoSpace(Graph):
             op=Reduction_B(1088)
         )
 
-        s3_output = self.add_par_cell_with_skip(CellC(), reduce_b, "s3", 5, 2)
+        s3_output = self.add_par_cell_with_skip(CellC(), reduce_b, "s3", 2, 2)
 
         # Post
         post_node = self.append_node()
@@ -237,7 +237,7 @@ class DemoSpace(Graph):
         self.add_edge_final(s3_output, post_node, op=ops.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
-            nn.Linear(2080, 100)
+            nn.Linear(2080, 10)
         ))
 
         self.compile()
