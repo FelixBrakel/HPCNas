@@ -22,8 +22,13 @@ def nas(config) -> Graph:
     optimizer.before_training()
 
     trainer = Trainer(optimizer, config)
-    trainer.search()
+    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+        trainer.search()
+    prof.export_chrome_trace("trace.json")
     trainer.evaluate()
+
+    print("exporting trace...")
+
     best = trainer.optimizer.get_final_architecture()
 
     return best
@@ -40,10 +45,8 @@ def main():
         print("No CUDA found, quitting")
         return -1
 
-    with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        _ = nas(config)
+    _ = nas(config)
 
-    prof.export_chrome_trace("trace.json")
 #    model = nas(config)
 #    model.eval()
     
