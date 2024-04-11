@@ -62,12 +62,12 @@ def main():
             images = images.to(device)
             labels = labels.to(device)
 
-            # Forward pass
+            # Backward and optimize
+            optimizer.zero_grad()
+
             outputs = model(images)
             loss = criterion(outputs, labels)
 
-            # Backward and optimize
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
