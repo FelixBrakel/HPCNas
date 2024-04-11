@@ -97,7 +97,7 @@ def main():
         print(f'Accuracy of the network on the 10000 test images: {100 * correct / total} %')
 
     # Save the model checkpoint
-    torch.save(model.state_dict(), 'inception_resnet_v2_cifar10.ckpt')
+    # torch.save(model.state_dict(), 'inception_resnet_v2_cifar10.ckpt')
 
 
 if __name__ == '__main__':
