@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,6 +8,8 @@ from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
 from par_resnet import ParResNet
+from naslib.utils import setup_logger
+from naslib.utils.log import log_every_n_seconds
 
 
 def main():
@@ -14,7 +18,7 @@ def main():
     # Hyperparameters
     num_epochs = 10
     batch_size = 64
-    learning_rate = 0.01
+    learning_rate = 0.025
 
     CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
     CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
@@ -49,9 +53,10 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
-
+    logger = setup_logger("log.log")
+    logging.basicConfig()
+    logger.setLevel(logging.DEBUG)
     # Training loop
-    total_steps = len(train_loader)
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
             images = images.to(device)
@@ -66,11 +71,19 @@ def main():
             loss.backward()
             optimizer.step()
 
-            if (i+1) % 100 == 0:
-                print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{total_steps}], Loss: {loss.item():.4f}')
+            log_every_n_seconds(
+                logging.INFO,
+                "Epoch {}-{}, Train loss: {:.5f}".format(
+                    epoch, i, loss
+                ),
+                n=5,
+                name='naslib'
+            )
 
-        scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
-    # Test the model
+        scheduler.step()
+
+
+# Test the model
     model.eval()
     with torch.no_grad():
         correct = 0
