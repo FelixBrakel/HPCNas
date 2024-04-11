@@ -42,8 +42,8 @@ def main():
     train_dataset = torchvision.datasets.CIFAR100(root='./data/cifar100', train=True, transform=train_transform, download=True)
     test_dataset = torchvision.datasets.CIFAR100(root='./data/cifar100', train=False, transform=valid_transform)
 
-    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
 
     # Model
     model = ParResNet(classes=100)  # Change num_classes to 10 for CIFAR-10
@@ -73,9 +73,7 @@ def main():
 
             log_every_n_seconds(
                 logging.INFO,
-                "Epoch {}-{}, Train loss: {:.5f}".format(
-                    epoch, i, loss
-                ),
+               f"Epoch {epoch}-{i}, Train loss: {loss:.5f}, Learning rate: {scheduler.get_last_lr():.5f}",
                 n=5,
                 name='naslib'
             )
