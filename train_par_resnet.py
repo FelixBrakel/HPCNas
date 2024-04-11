@@ -73,7 +73,7 @@ def main():
 
             log_every_n_seconds(
                 logging.INFO,
-               f"Epoch {epoch}-{i}, Train loss: {loss:.5f}, Learning rate: {scheduler.get_last_lr():.5f}",
+               f"Epoch {epoch}-{i}, Train loss: {loss:.5f}, Learning rate: {scheduler.get_last_lr():}",
                 n=5,
                 name='naslib'
             )
