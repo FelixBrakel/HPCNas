@@ -82,7 +82,7 @@ class MacroStage(nn.Module):
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
         self.relu = nn.ReLU(inplace=True)
         self.conv = nn.Conv2d(cell.out_channels * partitions, cell_channels, 1, stride=1, padding=0, bias=True)
-        self.stem_scale = stem_scale
+        self.cell_scale = stem_scale
 
     def forward(self, x):
         cell_out = []
@@ -90,7 +90,7 @@ class MacroStage(nn.Module):
             cell_out.append(self.cells[p](x))
         cell_out = torch.cat(cell_out, dim=1)
 
-        return self.relu(self.conv(cell_out) + x * self.stem_scale)
+        return self.relu(self.conv(cell_out) * self.cell_scale + x)
 
 
 class ParResNet(nn.Module):
@@ -101,19 +101,19 @@ class ParResNet(nn.Module):
 
         self.stage1 = []
         for _ in range(5):
-            self.stage1.append(MacroStage(CellA, 2, 320, 0.17))
+            self.stage1.append(MacroStage(CellA, 1, 320, 0.17))
         self.stage1 = nn.Sequential(*self.stage1)
         self.reduction1 = Reduction_A(320, k, l, m, n)
 
         self.stage2 = []
         for _ in range(10):
-            self.stage2.append(MacroStage(CellB, 2, 1088, 0.1))
+            self.stage2.append(MacroStage(CellB, 1, 1088, 0.1))
         self.stage2 = nn.Sequential(*self.stage2)
         self.reduction2 = Reduction_B(1088)
 
         self.stage3 = []
         for _ in range(5):
-            self.stage3.append(MacroStage(CellC, 2, 2080, 0.2))
+            self.stage3.append(MacroStage(CellC, 1, 2080, 0.2))
         self.stage3 = nn.Sequential(*self.stage3)
 
         self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
@@ -132,6 +132,5 @@ class ParResNet(nn.Module):
         _x = self.global_average_pooling(_x)
         _x = _x.view(_x.size(0), -1)
         _x = self.linear(_x)
-
 
         return _x
