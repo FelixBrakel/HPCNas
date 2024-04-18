@@ -49,7 +49,7 @@ class Inception_ResNet_A(nn.Module):
             Conv2d(32, 48, 3, stride=1, padding=1, bias=False),
             Conv2d(48, 64, 3, stride=1, padding=1, bias=False)
         )
-        self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
+        self.conv = nn.Conv2d(128, in_channels, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):

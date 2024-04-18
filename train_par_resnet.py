@@ -54,7 +54,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
-    scaler = torch.cuda.amp.GradScaler(enabled=False)
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     logger = setup_logger("log.log")
     logging.basicConfig()
@@ -69,11 +69,9 @@ def main():
             # Backward and optimize
             optimizer.zero_grad()
 
-            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
-
-            loss = scaler.scale(loss)
 
             log_every_n_seconds(
                 logging.INFO,
@@ -81,6 +79,8 @@ def main():
                 n=5,
                 name='naslib'
             )
+
+            loss = scaler.scale(loss)
 
             loss.backward()
             # scaler.unscale_(optimizer)
