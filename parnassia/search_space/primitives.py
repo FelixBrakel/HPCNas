@@ -47,16 +47,16 @@ class Inception_ResNet_A(nn.Module):
             Conv2d(32, 48, 3, stride=1, padding=1, bias=False),
             Conv2d(48, 64, 3, stride=1, padding=1, bias=False)
         )
-        # self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
-        # self.relu = nn.ReLU(inplace=True)
+        self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
+        self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x2 = self.branch_2(x)
         x_res = torch.cat((x0, x1, x2), dim=1)
-        # x_res = self.conv(x_res)
-        # return self.relu(x + self.scale * x_res)
-        return x_res
+        x_res = self.conv(x_res)
+        return self.relu(x + self.scale * x_res)
 
 
 class Inception_ResNet_B(nn.Module):

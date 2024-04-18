@@ -134,3 +134,69 @@ class ParResNet(nn.Module):
         _x = self.linear(_x)
 
         return _x
+
+
+class MoEResNet(nn.Module):
+    def __init__(self, in_channels=3, classes=1000, k=256, l=256, m=384, n=384):
+        super(MoEResNet, self).__init__()
+
+        self.stem = CIFARStem(in_channels, 320)
+
+        self.stage00 = []
+        self.stage01 = []
+        for _ in range(5):
+            self.stage00.append(Inception_ResNet_A(320, 0.17))
+            self.stage01.append(Inception_ResNet_A(320, 0.17))
+
+        self.stage00 = nn.Sequential(*self.stage00)
+        self.stage01 = nn.Sequential(*self.stage01)
+        self.reduction1 = Reduction_A(320, k, l, m, n)
+
+        self.stage10 = []
+        self.stage11 = []
+
+        for _ in range(10):
+            self.stage10.append(Inception_ResNet_B(1088, 0.1))
+            self.stage11.append(Inception_ResNet_B(1088, 0.1))
+
+        self.stage10 = nn.Sequential(*self.stage10)
+        self.stage11 = nn.Sequential(*self.stage11)
+
+        self.reduction2 = Reduction_B(1088)
+
+        self.stage20 = []
+        self.stage21 = []
+
+        for _ in range(5):
+            self.stage20.append(Inception_ResNet_C(2080, 0.2))
+            self.stage21.append(Inception_ResNet_C(2080, 0.2))
+
+        self.stage20 = nn.Sequential(*self.stage20)
+        self.stage21 = nn.Sequential(*self.stage21)
+
+        self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
+        self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
+        self.linear = nn.Linear(1536, classes)
+
+    def forward(self, x):
+        _x = self.stem(x)
+
+        _x0 = self.stage00(_x)
+        _x1 = self.stage01(_x)
+
+        _x = self.reduction1((_x0 + _x1) / 2)
+
+        _x0 = self.stage10(_x)
+        _x1 = self.stage11(_x)
+
+        _x = self.reduction2((_x0 + _x1) / 2)
+
+        _x0 = self.stage20(_x)
+        _x1 = self.stage21(_x)
+
+        _x = self.conv((_x0 + _x1) / 2)
+        _x = self.global_average_pooling(_x)
+        _x = _x.view(_x.size(0), -1)
+        _x = self.linear(_x)
+
+        return _x
