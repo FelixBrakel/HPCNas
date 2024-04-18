@@ -15,10 +15,11 @@ from naslib.utils.log import log_every_n_seconds
 def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
+    print(torch.version.cuda)
     # Hyperparameters
     num_epochs = 10
     batch_size = 64
-    learning_rate = 0.025
+    learning_rate = 0.01
 
     CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
     CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
@@ -53,7 +54,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
-    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    scaler = torch.cuda.amp.GradScaler(enabled=False)
 
     logger = setup_logger("log.log")
     logging.basicConfig()
@@ -68,21 +69,27 @@ def main():
             # Backward and optimize
             optimizer.zero_grad()
 
-            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
 
-                log_every_n_seconds(
-                    logging.INFO,
-                    f"Epoch {epoch}-{i}, Train loss: {loss:.5f}, Learning rate: {scheduler.get_last_lr():}",
-                    n=5,
-                    name='naslib'
-                )
-                loss = scaler.scale(loss)
-                loss.backward()
+            loss = scaler.scale(loss)
+
+            log_every_n_seconds(
+                logging.INFO,
+                f"Epoch {epoch}-{i}, Train loss: {loss:.5f}, Learning rate: {scheduler.get_last_lr():}",
+                n=5,
+                name='naslib'
+            )
+
+            loss.backward()
+            # scaler.unscale_(optimizer)
+
+            # Since the gradients of optimizer's assigned params are unscaled, clips as usual:
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
             scaler.step(optimizer)
             scaler.update()
-
 
         scheduler.step()
 
