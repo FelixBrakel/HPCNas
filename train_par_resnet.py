@@ -81,7 +81,6 @@ def main():
             )
 
             loss = scaler.scale(loss)
-
             loss.backward()
             # scaler.unscale_(optimizer)
 

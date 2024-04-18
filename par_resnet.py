@@ -193,7 +193,7 @@ class MoEResNet(nn.Module):
 
         self.stage00 = []
         self.stage01 = []
-        for _ in range(5):
+        for _ in range(1):
             self.stage00.append(Inception_ResNet_A(160, 0.17))
             self.stage01.append(Inception_ResNet_A(160, 0.17))
 
@@ -204,7 +204,7 @@ class MoEResNet(nn.Module):
         self.stage10 = []
         self.stage11 = []
 
-        for _ in range(10):
+        for _ in range(2):
             self.stage10.append(Inception_ResNet_B(544, 0.1))
             self.stage11.append(Inception_ResNet_B(544, 0.1))
 
@@ -216,7 +216,7 @@ class MoEResNet(nn.Module):
         self.stage20 = []
         self.stage21 = []
 
-        for _ in range(5):
+        for _ in range(1):
             self.stage20.append(Inception_ResNet_C(1040, 0.2))
             self.stage21.append(Inception_ResNet_C(1040, 0.2))
 
