@@ -136,6 +136,55 @@ class ParResNet(nn.Module):
         return _x
 
 
+class MoEReductionA(nn.Module):
+    def __init__(self, C_in, k, l, m, n):
+        super(MoEReductionA, self).__init__()
+        self.reduce = Conv2d(C_in, C_in//2, 1, stride=1, padding=0, bias=True)
+        self.branch_0 = Conv2d(C_in//2, n, 3, stride=2, padding=0, bias=False)
+        self.branch_1 = nn.Sequential(
+            Conv2d(C_in//2, k, 1, stride=1, padding=0, bias=False),
+            Conv2d(k, l, 3, stride=1, padding=1, bias=False),
+            Conv2d(l, m, 3, stride=2, padding=0, bias=False),
+        )
+        self.branch_2 = nn.MaxPool2d(3, stride=2, padding=0)
+
+    def forward(self, x):
+        _x = self.reduce(x)
+        x0 = self.branch_0(_x)
+        x1 = self.branch_1(_x)
+        x2 = self.branch_2(_x)
+        return torch.cat((x0, x1, x2), dim=1)
+
+
+class MoEReductionB(nn.Module):
+    def __init__(self, C_in):
+        super(MoEReductionB, self).__init__()
+        self.reduce = Conv2d(C_in, C_in//2, 1, 0, 1, True)
+
+        self.branch_0 = nn.Sequential(
+            Conv2d(C_in//2, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 384, 3, stride=2, padding=0, bias=False)
+        )
+        self.branch_1 = nn.Sequential(
+            Conv2d(C_in//2, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 288, 3, stride=2, padding=0, bias=False),
+        )
+        self.branch_2 = nn.Sequential(
+            Conv2d(C_in//2, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 288, 3, stride=1, padding=1, bias=False),
+            Conv2d(288, 320, 3, stride=2, padding=0, bias=False)
+        )
+        self.branch_3 = nn.MaxPool2d(3, stride=2, padding=0)
+
+    def forward(self, x):
+        _x = self.reduce(x)
+        x0 = self.branch_0(_x)
+        x1 = self.branch_1(_x)
+        x2 = self.branch_2(_x)
+        x3 = self.branch_3(_x)
+        return torch.cat((x0, x1, x2, x3), dim=1)
+
+
 class MoEResNet(nn.Module):
     def __init__(self, in_channels=3, classes=1000, k=256, l=256, m=384, n=384):
         super(MoEResNet, self).__init__()
@@ -150,7 +199,7 @@ class MoEResNet(nn.Module):
 
         self.stage00 = nn.Sequential(*self.stage00)
         self.stage01 = nn.Sequential(*self.stage01)
-        self.reduction1 = Reduction_A(320, k, l, m, n)
+        self.reduction0 = MoEReductionA(640, k, l, m, n)
 
         self.stage10 = []
         self.stage11 = []
@@ -162,7 +211,7 @@ class MoEResNet(nn.Module):
         self.stage10 = nn.Sequential(*self.stage10)
         self.stage11 = nn.Sequential(*self.stage11)
 
-        self.reduction2 = Reduction_B(1088)
+        self.reduction1 = MoEReductionB(2176)
 
         self.stage20 = []
         self.stage21 = []
@@ -174,7 +223,7 @@ class MoEResNet(nn.Module):
         self.stage20 = nn.Sequential(*self.stage20)
         self.stage21 = nn.Sequential(*self.stage21)
 
-        self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
+        self.conv = Conv2d(4160, 1536, 1, stride=1, padding=0, bias=False)
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
         self.linear = nn.Linear(1536, classes)
 
@@ -184,17 +233,16 @@ class MoEResNet(nn.Module):
         _x0 = self.stage00(_x)
         _x1 = self.stage01(_x)
 
-        _x = self.reduction1((_x0 + _x1) / 2)
+        _x = self.reduction0(torch.cat((_x0, _x1), dim=1))
 
         _x0 = self.stage10(_x)
         _x1 = self.stage11(_x)
 
-        _x = self.reduction2((_x0 + _x1) / 2)
+        _x = self.reduction1(torch.cat((_x0, _x1), dim=1))
 
         _x0 = self.stage20(_x)
         _x1 = self.stage21(_x)
-
-        _x = self.conv((_x0 + _x1) / 2)
+        _x = self.conv(torch.cat((_x0, _x1), dim=1))
         _x = self.global_average_pooling(_x)
         _x = _x.view(_x.size(0), -1)
         _x = self.linear(_x)

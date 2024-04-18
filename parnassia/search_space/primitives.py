@@ -22,15 +22,17 @@ class CIFARStem(nn.Module):
 class Conv2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, padding, stride=1, bias=True):
         super(Conv2d, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=False)
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.1)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        return x
+        _x = self.conv(x)
+
+        _x = self.bn(_x)
+        _x = self.relu(_x)
+
+        return _x
 
 
 class Inception_ResNet_A(nn.Module):
@@ -56,7 +58,7 @@ class Inception_ResNet_A(nn.Module):
         x2 = self.branch_2(x)
         x_res = torch.cat((x0, x1, x2), dim=1)
         x_res = self.conv(x_res)
-        return self.relu(x + self.scale * x_res)
+        return self.relu((1-self.scale)*x + self.scale * x_res)
 
 
 class Inception_ResNet_B(nn.Module):
@@ -69,14 +71,14 @@ class Inception_ResNet_B(nn.Module):
             Conv2d(128, 160, (1, 7), stride=1, padding=(0, 3), bias=False),
             Conv2d(160, 192, (7, 1), stride=1, padding=(3, 0), bias=False)
         )
-        self.conv = nn.Conv2d(384, 1088, 1, stride=1, padding=0, bias=True)
+        self.conv = nn.Conv2d(384, in_channels, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x_res = torch.cat((x0, x1), dim=1)
         x_res = self.conv(x_res)
-        return self.relu(x + self.scale * x_res)
+        return self.relu((1-self.scale)*x + self.scale * x_res)
 
 
 class Inception_ResNet_C(nn.Module):
@@ -90,7 +92,7 @@ class Inception_ResNet_C(nn.Module):
             Conv2d(192, 224, (1, 3), stride=1, padding=(0, 1), bias=False),
             Conv2d(224, 256, (3, 1), stride=1, padding=(1, 0), bias=False)
         )
-        self.conv = nn.Conv2d(448, 2080, 1, stride=1, padding=0, bias=True)
+        self.conv = nn.Conv2d(448, in_channels, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -100,7 +102,7 @@ class Inception_ResNet_C(nn.Module):
         x_res = self.conv(x_res)
         if self.activation:
             return self.relu(x + self.scale * x_res)
-        return x + self.scale * x_res
+        return (1-self.scale)*x + self.scale * x_res
 
 
 class Reduction_A(ops.AbstractPrimitive):
