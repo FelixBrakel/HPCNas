@@ -199,31 +199,31 @@ class MoEResNet(nn.Module):
 
         self.stage00 = nn.Sequential(*self.stage00)
         self.stage01 = nn.Sequential(*self.stage01)
-        self.reduction0 = MoEReductionA(640, k, l, m, n)
+        self.reduction0 = Reduction_A(640, k, l, m, n)
 
         self.stage10 = []
         self.stage11 = []
 
         for _ in range(10):
-            self.stage10.append(Inception_ResNet_B(1088, 0.1))
-            self.stage11.append(Inception_ResNet_B(1088, 0.1))
+            self.stage10.append(Inception_ResNet_B(1408, 0.1))
+            self.stage11.append(Inception_ResNet_B(1408, 0.1))
 
         self.stage10 = nn.Sequential(*self.stage10)
         self.stage11 = nn.Sequential(*self.stage11)
 
-        self.reduction1 = MoEReductionB(2176)
+        self.reduction1 = Reduction_B(2816)
 
         self.stage20 = []
         self.stage21 = []
 
         for _ in range(5):
-            self.stage20.append(Inception_ResNet_C(2080, 0.2))
-            self.stage21.append(Inception_ResNet_C(2080, 0.2))
+            self.stage20.append(Inception_ResNet_C(3808, 0.2))
+            self.stage21.append(Inception_ResNet_C(3808, 0.2))
 
         self.stage20 = nn.Sequential(*self.stage20)
         self.stage21 = nn.Sequential(*self.stage21)
 
-        self.conv = Conv2d(4160, 1536, 1, stride=1, padding=0, bias=False)
+        self.conv = Conv2d(7616, 1536, 1, stride=1, padding=0, bias=False)
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
         self.linear = nn.Linear(1536, classes)
 
