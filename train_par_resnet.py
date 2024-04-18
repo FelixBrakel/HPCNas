@@ -7,7 +7,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
-from par_resnet import ParResNet
+from par_resnet import ParResNet, MoEResNet
 from naslib.utils import setup_logger
 from naslib.utils.log import log_every_n_seconds
 
@@ -46,14 +46,14 @@ def main():
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
 
     # Model
-    model = ParResNet(classes=100)  # Change num_classes to 10 for CIFAR-10
+    model = MoEResNet(classes=100)  # Change num_classes to 10 for CIFAR-10
     model = model.to(device)
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs)
-    scaler = torch.cuda.amp.GradScaler(enabled=False)
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     logger = setup_logger("log.log")
     logging.basicConfig()
@@ -68,7 +68,7 @@ def main():
             # Backward and optimize
             optimizer.zero_grad()
 
-            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=False):
+            with torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=True):
                 outputs = model(images)
                 loss = criterion(outputs, labels)
 
