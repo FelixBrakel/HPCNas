@@ -58,7 +58,7 @@ class Inception_ResNet_A(nn.Module):
         x2 = self.branch_2(x)
         x_res = torch.cat((x0, x1, x2), dim=1)
         x_res = self.conv(x_res)
-        return self.relu((1-self.scale)*x + self.scale * x_res)
+        return self.relu(x + self.scale * x_res)
 
 
 class Inception_ResNet_B(nn.Module):
@@ -78,7 +78,7 @@ class Inception_ResNet_B(nn.Module):
         x1 = self.branch_1(x)
         x_res = torch.cat((x0, x1), dim=1)
         x_res = self.conv(x_res)
-        return self.relu((1-self.scale)*x + self.scale * x_res)
+        return self.relu(x + self.scale * x_res)
 
 
 class Inception_ResNet_C(nn.Module):
@@ -102,7 +102,7 @@ class Inception_ResNet_C(nn.Module):
         x_res = self.conv(x_res)
         if self.activation:
             return self.relu(x + self.scale * x_res)
-        return (1-self.scale)*x + self.scale * x_res
+        return x + self.scale * x_res
 
 
 class Reduction_A(ops.AbstractPrimitive):
