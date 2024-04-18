@@ -101,19 +101,19 @@ class ParResNet(nn.Module):
 
         self.stage1 = []
         for _ in range(5):
-            self.stage1.append(MacroStage(CellA, 1, 320, 0.17))
+            self.stage1.append(MacroStage(CellA, 2, 320, 0.17))
         self.stage1 = nn.Sequential(*self.stage1)
         self.reduction1 = Reduction_A(320, k, l, m, n)
 
         self.stage2 = []
         for _ in range(10):
-            self.stage2.append(MacroStage(CellB, 1, 1088, 0.1))
+            self.stage2.append(MacroStage(CellB, 2, 1088, 0.1))
         self.stage2 = nn.Sequential(*self.stage2)
         self.reduction2 = Reduction_B(1088)
 
         self.stage3 = []
         for _ in range(5):
-            self.stage3.append(MacroStage(CellC, 1, 2080, 0.2))
+            self.stage3.append(MacroStage(CellC, 2, 2080, 0.2))
         self.stage3 = nn.Sequential(*self.stage3)
 
         self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
