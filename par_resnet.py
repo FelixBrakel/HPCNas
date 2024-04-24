@@ -74,7 +74,7 @@ class CellC(nn.Module):
 
 
 class MacroStage(nn.Module):
-    def __init__(self, cell, partitions: int, cell_channels: int, stem_scale: int):
+    def __init__(self, cell, partitions: int, cell_channels: int, stem_scale: float):
         super(MacroStage, self).__init__()
 
         self.name = "MacroStageA"
@@ -94,26 +94,34 @@ class MacroStage(nn.Module):
 
 
 class ParResNet(nn.Module):
-    def __init__(self, in_channels=3, classes=1000, k=256, l=256, m=384, n=384):
+    def __init__(
+            self,
+            in_channels=3,
+            classes=1000,
+            s0_depth=10,
+            s1_depth=20,
+            s2_depth=10,
+            partitions=1,
+            k=256, l=256, m=384, n=384):
         super(ParResNet, self).__init__()
 
         self.stem = CIFARStem(in_channels, 320)
 
         self.stage1 = []
-        for _ in range(5):
-            self.stage1.append(MacroStage(CellA, 2, 320, 0.17))
+        for _ in range(s0_depth):
+            self.stage1.append(MacroStage(CellA, partitions, 320, 0.17))
         self.stage1 = nn.Sequential(*self.stage1)
         self.reduction1 = Reduction_A(320, k, l, m, n)
 
         self.stage2 = []
-        for _ in range(10):
-            self.stage2.append(MacroStage(CellB, 2, 1088, 0.1))
+        for _ in range(s1_depth):
+            self.stage2.append(MacroStage(CellB, partitions, 1088, 0.1))
         self.stage2 = nn.Sequential(*self.stage2)
         self.reduction2 = Reduction_B(1088)
 
         self.stage3 = []
-        for _ in range(5):
-            self.stage3.append(MacroStage(CellC, 2, 2080, 0.2))
+        for _ in range(s2_depth):
+            self.stage3.append(MacroStage(CellC, partitions, 2080, 0.2))
         self.stage3 = nn.Sequential(*self.stage3)
 
         self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
@@ -186,14 +194,22 @@ class MoEReductionB(nn.Module):
 
 
 class MoEResNet(nn.Module):
-    def __init__(self, in_channels=3, classes=1000, k=256, l=256, m=384, n=384):
+    def __init__(
+            self,
+            in_channels=3,
+            classes=1000,
+            s0_depth=10,
+            s1_depth=20,
+            s2_depth=10,
+            partitions=2,
+            k=256, l=256, m=384, n=384):
         super(MoEResNet, self).__init__()
 
         self.stem = CIFARStem(in_channels, 320)
 
         self.stage00 = []
         self.stage01 = []
-        for _ in range(5):
+        for _ in range(s0_depth):
             self.stage00.append(Inception_ResNet_A(320, 0.17))
             self.stage01.append(Inception_ResNet_A(320, 0.17))
 
@@ -204,7 +220,7 @@ class MoEResNet(nn.Module):
         self.stage10 = []
         self.stage11 = []
 
-        for _ in range(10):
+        for _ in range(s1_depth):
             self.stage10.append(Inception_ResNet_B(1408, 0.1))
             self.stage11.append(Inception_ResNet_B(1408, 0.1))
 
@@ -216,7 +232,7 @@ class MoEResNet(nn.Module):
         self.stage20 = []
         self.stage21 = []
 
-        for _ in range(5):
+        for _ in range(s2_depth):
             self.stage20.append(Inception_ResNet_C(3808, 0.2))
             self.stage21.append(Inception_ResNet_C(3808, 0.2))
 
