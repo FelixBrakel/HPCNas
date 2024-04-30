@@ -20,9 +20,20 @@ class CIFARStem(nn.Module):
 
 
 class Conv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, padding, stride=1, bias=True):
+    def __init__(
+            self, in_channels, out_channels, kernel_size,
+            padding, stride=1, groups=1, bias=True
+    ):
         super(Conv2d, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=False)
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias=False
+        )
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.1)
         self.relu = nn.ReLU(inplace=True)
 
@@ -39,17 +50,42 @@ class Inception_ResNet_A(nn.Module):
     def __init__(self, in_channels, scale=1.0):
         super(Inception_ResNet_A, self).__init__()
         self.scale = scale
-        self.branch_0 = Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False)
+
+        self.branch_0 = Conv2d(
+            in_channels, 32, 1,
+            stride=1, padding=0, bias=False
+        )
+
         self.branch_1 = nn.Sequential(
-            Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False),
-            Conv2d(32, 32, 3, stride=1, padding=1, bias=False)
+            Conv2d(
+                in_channels, 32, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                32, 32, 3,
+                stride=1, padding=1, bias=False
+            )
         )
+
         self.branch_2 = nn.Sequential(
-            Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False),
-            Conv2d(32, 48, 3, stride=1, padding=1, bias=False),
-            Conv2d(48, 64, 3, stride=1, padding=1, bias=False)
+            Conv2d(
+                in_channels, 32, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                32, 48, 3,
+                stride=1, padding=1, bias=False
+            ),
+            Conv2d(
+                48, 64, 3,
+                stride=1, padding=1, bias=False
+            )
         )
-        self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
+
+        self.conv = nn.Conv2d(
+            128, 320, 1,
+            stride=1, padding=0, bias=True
+        )
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -65,14 +101,36 @@ class Inception_ResNet_B(nn.Module):
     def __init__(self, in_channels, scale=1.0):
         super(Inception_ResNet_B, self).__init__()
         self.scale = scale
-        self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
-        self.branch_1 = nn.Sequential(
-            Conv2d(in_channels, 128, 1, stride=1, padding=0, bias=False),
-            Conv2d(128, 160, (1, 7), stride=1, padding=(0, 3), bias=False),
-            Conv2d(160, 192, (7, 1), stride=1, padding=(3, 0), bias=False)
+        self.branch_0 = Conv2d(
+            in_channels, 192, 1,
+            stride=1, padding=0, bias=False
         )
-        self.conv = nn.Conv2d(384, in_channels, 1, stride=1, padding=0, bias=True)
+
+        self.branch_1 = nn.Sequential(
+            Conv2d(
+                in_channels, 128, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                128, 160, (1, 7),
+                stride=1, padding=(0, 3), bias=False
+            ),
+            Conv2d(
+                160, 192, (7, 1),
+                stride=1, padding=(3, 0), bias=False
+            )
+        )
+
+        self.conv = nn.Conv2d(
+            384,
+            in_channels,
+            1,
+            stride=1,
+            padding=0,
+            bias=True
+        )
         self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
@@ -86,13 +144,31 @@ class Inception_ResNet_C(nn.Module):
         super(Inception_ResNet_C, self).__init__()
         self.scale = scale
         self.activation = activation
-        self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
-        self.branch_1 = nn.Sequential(
-            Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False),
-            Conv2d(192, 224, (1, 3), stride=1, padding=(0, 1), bias=False),
-            Conv2d(224, 256, (3, 1), stride=1, padding=(1, 0), bias=False)
+
+        self.branch_0 = Conv2d(
+            in_channels, 192, 1,
+            stride=1, padding=0, bias=False
         )
-        self.conv = nn.Conv2d(448, in_channels, 1, stride=1, padding=0, bias=True)
+
+        self.branch_1 = nn.Sequential(
+            Conv2d(
+                in_channels, 192, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                192, 224, (1, 3),
+                stride=1, padding=(0, 1), bias=False
+            ),
+            Conv2d(
+                224, 256, (3, 1),
+                stride=1, padding=(1, 0), bias=False
+            )
+        )
+
+        self.conv = nn.Conv2d(
+            448, in_channels, 1,
+            stride=1, padding=0, bias=True
+        )
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -130,17 +206,38 @@ class Reduction_B(ops.AbstractPrimitive):
     def __init__(self, C_in):
         super().__init__(locals())
         self.branch_0 = nn.Sequential(
-            Conv2d(C_in, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 384, 3, stride=2, padding=0, bias=False)
+            Conv2d(
+                C_in, 256, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                256, 384, 3,
+                stride=2, padding=0, bias=False
+            )
         )
         self.branch_1 = nn.Sequential(
-            Conv2d(C_in, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 288, 3, stride=2, padding=0, bias=False),
+            Conv2d(
+                C_in, 256, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                256, 288, 3,
+                stride=2, padding=0, bias=False
+            ),
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(C_in, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 288, 3, stride=1, padding=1, bias=False),
-            Conv2d(288, 320, 3, stride=2, padding=0, bias=False)
+            Conv2d(
+                C_in, 256, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                256, 288, 3,
+                stride=1, padding=1, bias=False
+            ),
+            Conv2d(
+                288, 320, 3,
+                stride=2, padding=0, bias=False
+            )
         )
         self.branch_3 = nn.MaxPool2d(3, stride=2, padding=0)
 
@@ -164,7 +261,10 @@ class FactorizedReduce(ops.AbstractPrimitive):
     If the resolution matches it resolves to identity
     """
 
-    def __init__(self, C_in, C_out, stride=1, affine=False, track_running_stats=False, **kwargs):
+    def __init__(
+            self, C_in, C_out,
+            stride=1, affine=False, track_running_stats=False, **kwargs
+    ):
         super().__init__(locals())
         self.stride = stride
         self.C_in = C_in
@@ -228,51 +328,68 @@ class ConvMul(ops.AbstractPrimitive):
         return op_name
 
 
-# class Conv2d(ops.AbstractPrimitive):
-#     def __init__(self, C_in, C_out, kernel_size, padding, stride=1, bias=True):
-#         super(Conv2d, self).__init__(locals())
-#         self.conv = nn.Conv2d(C_in, C_out, kernel_size, stride=stride, padding=padding, bias=bias)
-#         self.bn = nn.BatchNorm2d(C_out, eps=0.001, momentum=0.1)
-#         self.relu = nn.ReLU(inplace=True)
-#
-#     def forward(self, x, edge_data=None):
-#         x = self.conv(x)
-#         x = self.bn(x)
-#         x = self.relu(x)
-#         return x
-#
-#     def get_embedded_ops(self):
-#         return None
-
-
 class Stem(ops.AbstractPrimitive):
-    """
-    From https://github.com/zhulf0804/Inceptionv4_and_Inception-ResNetv2.PyTorch/blob/master/model/inception_resnet_v2.py
-    """
     def __init__(self, C_in):
         super(Stem, self).__init__(locals())
         self.features = nn.Sequential(
-            Conv2d(C_in, 32, 3, stride=2, padding=0, bias=False), # 149 x 149 x 32
-            Conv2d(32, 32, 3, stride=1, padding=0, bias=False), # 147 x 147 x 32
-            Conv2d(32, 64, 3, stride=1, padding=1, bias=False), # 147 x 147 x 64
+            Conv2d(
+                C_in, 32, 3,
+                stride=2, padding=0, bias=False
+            ),  # 149 x 149 x 32
+            Conv2d(
+                32, 32, 3,
+                stride=1, padding=0, bias=False
+            ),  # 147 x 147 x 32
+            Conv2d(
+                32, 64, 3,
+                stride=1, padding=1, bias=False
+            ),  # 147 x 147 x 64
             nn.MaxPool2d(3, stride=2, padding=0), # 73 x 73 x 64
-            Conv2d(64, 80, 1, stride=1, padding=0, bias=False), # 73 x 73 x 80
-            Conv2d(80, 192, 3, stride=1, padding=0, bias=False), # 71 x 71 x 192
+            Conv2d(
+                64, 80, 1,
+                stride=1, padding=0, bias=False
+            ),  # 73 x 73 x 80
+            Conv2d(
+                80, 192, 3,
+                stride=1, padding=0, bias=False
+            ),  # 71 x 71 x 192
             nn.MaxPool2d(3, stride=2, padding=0), # 35 x 35 x 192
         )
-        self.branch_0 = Conv2d(192, 96, 1, stride=1, padding=0, bias=False)
+
+        self.branch_0 = Conv2d(
+            192, 96, 1,
+            stride=1, padding=0, bias=False
+        )
         self.branch_1 = nn.Sequential(
-            Conv2d(192, 48, 1, stride=1, padding=0, bias=False),
-            Conv2d(48, 64, 5, stride=1, padding=2, bias=False),
+            Conv2d(
+                192, 48, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                48, 64, 5,
+                stride=1, padding=2, bias=False
+            ),
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(192, 64, 1, stride=1, padding=0, bias=False),
-            Conv2d(64, 96, 3, stride=1, padding=1, bias=False),
-            Conv2d(96, 96, 3, stride=1, padding=1, bias=False),
+            Conv2d(
+                192, 64, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                64, 96, 3,
+                stride=1, padding=1, bias=False
+            ),
+            Conv2d(
+                96, 96, 3,
+                stride=1, padding=1, bias=False
+            ),
         )
         self.branch_3 = nn.Sequential(
             nn.AvgPool2d(3, stride=1, padding=1, count_include_pad=False),
-            Conv2d(192, 64, 1, stride=1, padding=0, bias=False)
+            Conv2d(
+                192, 64, 1,
+                stride=1, padding=0, bias=False
+            )
         )
 
     def forward(self, x, edge_data=None):
