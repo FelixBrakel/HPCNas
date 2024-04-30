@@ -171,20 +171,20 @@ def train_model(model_name, save_name=None, **kwargs):
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=4
+        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=16
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=16
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=16
     )
 
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, save_name),
         accelerator="gpu",
-        devices=1,
+        devices=2,
         max_epochs=20,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
@@ -213,8 +213,13 @@ def train_model(model_name, save_name=None, **kwargs):
 
     return model, result
 
+import argparse
 
 def main():
+    parser = argparse.ArgumentParser(description="Train a model with specified hyperparameters")
+    parser.add_argument("--groups", type=int, default=1, help="Number of groups for the model")
+    args = parser.parse_args()
+
     setup()
     model, results = train_model(
         model_name="GroupedResNet",
@@ -224,7 +229,7 @@ def main():
             "s0_depth": 10,
             "s1_depth": 20,
             "s2_depth": 10,
-            "groups": 1
+            "groups": args.groups
         },
         optimizer_name="Adam",
         optimizer_hparams={
