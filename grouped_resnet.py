@@ -7,28 +7,65 @@ class Stem(nn.Module):
     def __init__(self, in_channels):
         super(Stem, self).__init__()
         self.features = nn.Sequential(
-            Conv2d(in_channels, 32, 3, stride=2, padding=0, bias=False), # 149 x 149 x 32
-            Conv2d(32, 32, 3, stride=1, padding=0, bias=False), # 147 x 147 x 32
-            Conv2d(32, 64, 3, stride=1, padding=1, bias=False), # 147 x 147 x 64
+            Conv2d(
+                in_channels, 32, 3,
+                stride=2, padding=0, bias=False
+            ), # 149 x 149 x 32
+            Conv2d(
+                32, 32, 3,
+                stride=1, padding=0, bias=False
+            ), # 147 x 147 x 32
+            Conv2d(
+                32, 64, 3,
+                stride=1, padding=1, bias=False
+            ), # 147 x 147 x 64
             nn.MaxPool2d(3, stride=2, padding=0), # 73 x 73 x 64
-            Conv2d(64, 80, 1, stride=1, padding=0, bias=False), # 73 x 73 x 80
-            Conv2d(80, 192, 3, stride=1, padding=0, bias=False), # 71 x 71 x 192
+            Conv2d(
+                64, 80, 1,
+                stride=1, padding=0, bias=False
+            ), # 73 x 73 x 80
+            Conv2d(
+                80, 192, 3,
+                stride=1, padding=0, bias=False
+            ), # 71 x 71 x 192
             nn.MaxPool2d(3, stride=2, padding=0), # 35 x 35 x 192
         )
-        self.branch_0 = Conv2d(192, 96, 1, stride=1, padding=0, bias=False)
+        self.branch_0 = Conv2d(
+            192, 96, 1,
+            stride=1, padding=0, bias=False
+        )
         self.branch_1 = nn.Sequential(
-            Conv2d(192, 48, 1, stride=1, padding=0, bias=False),
-            Conv2d(48, 64, 5, stride=1, padding=2, bias=False),
+            Conv2d(
+                192, 48, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                48, 64, 5,
+                stride=1, padding=2, bias=False
+            ),
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(192, 64, 1, stride=1, padding=0, bias=False),
-            Conv2d(64, 96, 3, stride=1, padding=1, bias=False),
-            Conv2d(96, 96, 3, stride=1, padding=1, bias=False),
+            Conv2d(
+                192, 64, 1,
+                stride=1, padding=0, bias=False
+            ),
+            Conv2d(
+                64, 96, 3,
+                stride=1, padding=1, bias=False
+            ),
+            Conv2d(
+                96, 96, 3,
+                stride=1, padding=1, bias=False
+            ),
         )
         self.branch_3 = nn.Sequential(
             nn.AvgPool2d(3, stride=1, padding=1, count_include_pad=False),
-            Conv2d(192, 64, 1, stride=1, padding=0, bias=False)
+            Conv2d(
+                192, 64, 1,
+                stride=1, padding=0, bias=False
+            )
         )
+
     def forward(self, x):
         x = self.features(x)
         x0 = self.branch_0(x)
@@ -159,7 +196,7 @@ class GroupedResNet(nn.Module):
             k=256, l=256, m=384, n=384, groups=1):
         super(GroupedResNet, self).__init__()
         blocks = []
-        blocks.append(CIFARStem(C_in=in_channels, C_out=320))
+        blocks.append(Stem(in_channels))
         for i in range(s0_depth):
             blocks.append(Inception_ResNet_A(320, 0.17, groups))
         blocks.append(Reduction_A(320, k, l, m, n))
