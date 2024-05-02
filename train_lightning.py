@@ -9,22 +9,22 @@ import os
 import numpy as np
 import random
 
-from torchvision.datasets import CIFAR100, Imagenette
+from torchvision.datasets import CIFAR100, Imagenette, ImageNet, ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from par_resnet import ParResNet
 from grouped_resnet import GroupedResNet
-
+from PIL import Image
 
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
-    'GroupedResNet': GroupedResNet
+    'GroupedResNet-ImageNet-100': GroupedResNet
 }
 
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
-DATASET_PATH = "./data"
+DATASET_PATH = "./data/imagenet"
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
 
@@ -58,40 +58,6 @@ def create_model(model_name, model_hparams):
         return model_dict[model_name](**model_hparams)
 
 
-# class ImageNetKaggle(data.Dataset):
-#     def __init__(self, root, split, transform=None):
-#         self.samples = []
-#         self.targets = []
-#         self.transform = transform
-#         self.syn_to_class = {}
-#         with open(os.path.join(root, "imagenet_class_index.json"), "rb") as f:
-#             json_file = json.load(f)
-#             for class_id, v in json_file.items():
-#                 self.syn_to_class[v[0]] = int(class_id)
-#         with open(os.path.join(root, "ILSVRC2012_val_labels.json"), "rb") as f:
-#             self.val_to_syn = json.load(f)
-#         samples_dir = os.path.join(root, "ILSVRC/Data/CLS-LOC", split)
-#         for entry in os.listdir(samples_dir):
-#             if split == "train":
-#                 syn_id = entry
-#                 target = self.syn_to_class[syn_id]
-#                 syn_folder = os.path.join(samples_dir, syn_id)
-#                 for sample in os.listdir(syn_folder):
-#                     sample_path = os.path.join(syn_folder, sample)
-#                     self.samples.append(sample_path)
-#                     self.targets.append(target)
-#             elif split == "val":
-#                 syn_id = self.val_to_syn[entry]
-#                 target = self.syn_to_class[syn_id]
-#                 sample_path = os.path.join(samples_dir, entry)
-#                 self.samples.append(sample_path)
-#                 self.targets.append(target)    def __len__(self):
-#             return len(self.samples)    def __getitem__(self, idx):
-#                 x = Image.open(self.samples[idx]).convert("RGB")
-#             if self.transform:
-#                 x = self.transform(x)
-
-
 class ResNetModule(pl.LightningModule):
     def __init__(self, model_name, model_hparams, optimizer_name, optimizer_hparams):
         """
@@ -110,6 +76,9 @@ class ResNetModule(pl.LightningModule):
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32)
+
+    def on_train_start(self) -> None:
+        self.logger.log_hyperparams(self.hparams)
 
     def forward(self, imgs):
         # Forward function that is run when visualizing the graph
@@ -167,6 +136,7 @@ def train_model(model_name, save_name=None, **kwargs):
         save_name = model_name
 
     test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
@@ -180,16 +150,16 @@ def train_model(model_name, save_name=None, **kwargs):
 
     # Loading the training dataset. We need to split it into a training and validation part
     # We need to do a little trick because the validation set should not use the augmentation.
-    train_set = Imagenette(
-        root=DATASET_PATH, split='train', transform=train_transform
+    train_set = ImageFolder(
+        root=DATASET_PATH + '/train', transform=train_transform
     )
-    test_set = Imagenette(
-        root=DATASET_PATH, split='val', transform=test_transform
+    test_set = ImageFolder(
+        root=DATASET_PATH + '/val', transform=test_transform
     )
     # test_set = Imagenette(
     #     root=DATASET_PATH, split='test', transform=test_transform, download=True
     # )
-    set_seed(42)
+    # set_seed(42)
     train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
     # set_seed(42)
     # _, val_set = torch.utils.data.random_split(val_dataset, [45000, 5000])
@@ -211,7 +181,7 @@ def train_model(model_name, save_name=None, **kwargs):
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, save_name),
         accelerator="gpu",
-        devices=1,
+        devices=4,
         max_epochs=20,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
@@ -228,17 +198,15 @@ def train_model(model_name, save_name=None, **kwargs):
         print(f"Found pretrained model at {pretrained_filename}, loading...")
         model = ResNetModule.load_from_checkpoint(pretrained_filename)
     else:
-        pl.seed_everything(42) # To be reproducable
+        # pl.seed_everything(42) # To be reproducable
         model = ResNetModule(model_name=model_name, **kwargs)
         trainer.fit(model, train_loader, val_loader)
         model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
 
     # Test best model on validation and test set
-    val_result = trainer.test(model, val_loader, verbose=False)
     test_result = trainer.test(model, test_loader, verbose=False)
-    result = {"test": test_result[0]["test_acc"], "val": val_result[0]["test_acc"]}
 
-    return model, result
+    return model, test_result
 
 
 import argparse
@@ -251,10 +219,10 @@ def main():
 
     setup()
     model, results = train_model(
-        model_name="GroupedResNet",
+        model_name="GroupedResNet-ImageNet-100",
         model_hparams={
             "in_channels": 3,
-            "classes": 10,
+            "classes": 100,
             "s0_depth": 10,
             "s1_depth": 20,
             "s2_depth": 10,
