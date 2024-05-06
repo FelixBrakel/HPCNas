@@ -3,28 +3,31 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
+import json
 
 import os
 import numpy as np
 import random
 
 import torchvision
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR100, Imagenette, ImageNet, ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from par_resnet import ParResNet
 from grouped_resnet import GroupedResNet
 
+from PIL import Image
 
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
     'GroupedResNet': GroupedResNet
+    'GroupedResNet-ImageNet-100': GroupedResNet
 }
 
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
-DATASET_PATH = "./data"
+DATASET_PATH = "./data/imagenet"
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
 
@@ -58,7 +61,7 @@ def create_model(model_name, model_hparams):
         return model_dict[model_name](**model_hparams)
 
 
-class CIFARModule(pl.LightningModule):
+class ResNetModule(pl.LightningModule):
     def __init__(self, model_name, model_hparams, optimizer_name, optimizer_hparams):
         """
         Inputs:
@@ -75,7 +78,10 @@ class CIFARModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 32, 32), dtype=torch.float32)
+        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32)
+
+    def on_train_start(self) -> None:
+        self.logger.log_hyperparams(self.hparams)
 
     def forward(self, imgs):
         # Forward function that is run when visualizing the graph
@@ -132,59 +138,54 @@ def train_model(model_name, save_name=None, **kwargs):
     if save_name is None:
         save_name = model_name
 
-    train_dataset = CIFAR100(root=DATASET_PATH, train=True, download=True)
-    DATA_MEANS = (train_dataset.data / 255.0).mean(axis=(0,1,2))
-    DATA_STD = (train_dataset.data / 255.0).std(axis=(0,1,2))
-    print("Data mean", DATA_MEANS)
-    print("Data std", DATA_STD)
-
-    test_transform = transforms.Compose([
+   test_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(DATA_MEANS, DATA_STD)
+        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
     # For training, we add some augmentation. Networks are too powerful and would overfit.
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
-        transforms.RandomResizedCrop((32,32), scale=(0.8,1.0), ratio=(0.9,1.1)),
+        transforms.RandomResizedCrop(224, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
         transforms.ToTensor(),
-        transforms.Normalize(DATA_MEANS, DATA_STD)
+        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
     # Loading the training dataset. We need to split it into a training and validation part
     # We need to do a little trick because the validation set should not use the augmentation.
-    train_dataset = CIFAR100(
-        root=DATASET_PATH, train=True, transform=train_transform, download=True
+   train_set = ImageFolder(
+        root=DATASET_PATH + '/train', transform=train_transform
     )
-    val_dataset = CIFAR100(
-        root=DATASET_PATH, train=True, transform=test_transform, download=True
+    test_set = ImageFolder(
+        root=DATASET_PATH + '/val', transform=test_transform
     )
-    set_seed(42)
-    train_set, _ = torch.utils.data.random_split(train_dataset, [45000, 5000])
-    set_seed(42)
-    _, val_set = torch.utils.data.random_split(val_dataset, [45000, 5000])
+    # test_set = Imagenette(
+    #     root=DATASET_PATH, split='test', transform=test_transform, download=True
+    # )
+    # set_seed(42)
+    train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
+    # set_seed(42)
+    # _, val_set = torch.utils.data.random_split(val_dataset, [45000, 5000])
 
     # Loading the test set
-    test_set = CIFAR100(
-        root=DATASET_PATH, train=False, transform=test_transform, download=True
-    )
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=4
+        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=4
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=4
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=4
     )
 
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, save_name),
         accelerator="gpu",
-        devices=1,
+        devices=4,
         max_epochs=20,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
@@ -215,16 +216,20 @@ def train_model(model_name, save_name=None, **kwargs):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Train a model with specified hyperparameters")
+    parser.add_argument("--groups", type=int, default=1, help="Number of groups for the model")
+    args = parser.parse_args()
+
     setup()
     model, results = train_model(
-        model_name="GroupedResNet",
+        model_name="GroupedResNet-ImageNet-100",
         model_hparams={
             "in_channels": 3,
             "classes": 100,
             "s0_depth": 10,
             "s1_depth": 20,
             "s2_depth": 10,
-            "groups": 1
+            "groups": args.groups
         },
         optimizer_name="Adam",
         optimizer_hparams={
