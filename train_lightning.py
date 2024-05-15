@@ -1,50 +1,32 @@
+from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
-import json
 import argparse
 import os
-import numpy as np
-import random
 
-import torchvision
 from torchvision.datasets import CIFAR100, Imagenette, ImageNet, ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from par_resnet import ParResNet
 from grouped_resnet import GroupedResNet
 
-from PIL import Image
-
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
     'GroupedResNet': GroupedResNet,
-    'GroupedResNet-ImageNet-100': GroupedResNet
 }
 
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
-DATASET_PATH = "./data/imagenet"
+DATASET_ROOT = "./data"
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
 
 
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-
-
 def setup():
-    # Function for setting the seed
-    set_seed(42)
-
     # Ensure that all operations are deterministic on GPU (if used) for reproducibility
     # torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
@@ -62,7 +44,7 @@ def create_model(model_name, model_hparams):
 
 
 class ResNetModule(pl.LightningModule):
-    def __init__(self, model_name, model_hparams, optimizer_name, optimizer_hparams):
+    def __init__(self, model_name, model_hparams, **kwargs):
         """
         Inputs:
             model_name - Name of the model/CNN to run. Used for creating the model
@@ -129,7 +111,7 @@ class ResNetModule(pl.LightningModule):
         self.log('test_acc', acc, sync_dist=True)
 
 
-def train_model(model_name, save_name=None, gpus=1, nodes=2, **kwargs):
+def train_model(model_name, dataset="imagenet", save_name=None, nodes=2, **kwargs):
     """
     Inputs:
         model_name - Name of the model you want to run.
@@ -155,55 +137,60 @@ def train_model(model_name, save_name=None, gpus=1, nodes=2, **kwargs):
     # Loading the training dataset. We need to split it into a training and validation part
     # We need to do a little trick because the validation set should not use the augmentation.
     train_set = ImageFolder(
-        root=DATASET_PATH + '/train', transform=train_transform
+        root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
     test_set = ImageFolder(
-        root=DATASET_PATH + '/val', transform=test_transform
+        root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
     )
     train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
 
-
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=4
+        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=0
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=0
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=4
+        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=0
     )
-
+    # logger = TensorBoardLogger(
+    #     os.path.join(CHECKPOINT_PATH, save_name),
+    #     default_hp_metric=False
+    # )
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(
-        default_root_dir=os.path.join(CHECKPOINT_PATH, save_name),
+        default_root_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
         accelerator="gpu",
         devices="auto",
-	num_nodes=nodes,
+        num_nodes=nodes,
         max_epochs=80,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
-	    EarlyStopping(
-     	        monitor="val_acc",
-	        min_delta=0.01,
-        	patience=5,
-	        verbose=False,
-        	mode="max")
+            EarlyStopping(
+                monitor="val_acc",
+                min_delta=0.01,
+                patience=3,
+                verbose=False,
+                mode="max"
+            )
         ],
-        enable_progress_bar=True
+        enable_progress_bar=True,
+        # logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
 
     # Check whether pretrained model exists. If yes, load it and skip training
-    pretrained_filename = os.path.join(CHECKPOINT_PATH, save_name + ".ckpt")
-    if os.path.isfile(pretrained_filename):
-        print(f"Found pretrained model at {pretrained_filename}, loading...")
-        model = ResNetModule.load_from_checkpoint(pretrained_filename)
-    else:
-        model = ResNetModule(model_name=model_name, **kwargs)
-        trainer.fit(model, train_loader, val_loader)
-        model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
+    # pretrained_filename = os.path.join(CHECKPOINT_PATH, save_name + ".ckpt")
+    # if os.path.isfile(pretrained_filename):
+    #     print(f"Found pretrained model at {pretrained_filename}, loading...")
+    #     model = ResNetModule.load_from_checkpoint(pretrained_filename)
+    # else:
+    kwargs['dataset'] = dataset
+    model = ResNetModule(model_name=model_name, **kwargs)
+    trainer.fit(model, train_loader, val_loader)
+    model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
 
     # Test best model on validation and test set
     test_result = trainer.test(model, test_loader, verbose=False)
@@ -213,23 +200,44 @@ def train_model(model_name, save_name=None, gpus=1, nodes=2, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description="Train a model with specified hyperparameters")
-    parser.add_argument("--groups", type=int, default=1, help="Number of groups for the model")
-    parser.add_argument("--gpus", type=int, default=1, help="Number of GPUs on a single node")
-    parser.add_argument("--nodes", type=int, default=1, help="Number of nodes")
+    parser.add_argument(
+        "--groups",
+        type=int,
+        default=1,
+        help="Number of groups for the model"
+    )
+    parser.add_argument(
+        "--nodes",
+        type=int,
+        default=1,
+        help="Number of nodes"
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=0,
+        help="Number of workers for the dataloader"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="imagenet",
+        help="path to the dataset (relative to DATASET_ROOT)"
+    )
     args = parser.parse_args()
 
     setup()
     model, results = train_model(
-        model_name="GroupedResNet-ImageNet-100",
-	gpus=args.gpus,
-	nodes=args.nodes, 
+        model_name="GroupedResNet",
+        nodes=args.nodes,
+        dataset=args.dataset,
         model_hparams={
             "in_channels": 3,
             "classes": 100,
             "s0_depth": 10,
             "s1_depth": 20,
             "s2_depth": 10,
-            "groups": args.groups
+            "groups": args.groups,
         },
         optimizer_name="Adam",
         optimizer_hparams={
