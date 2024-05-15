@@ -38,7 +38,7 @@ nvidia-nvtx-cu12==12.1.105
 packaging==24.0
 pillow==10.3.0
 portalocker==2.8.2
-protobuf==5.26.1
+protobuf<5.0.0
 pyparsing==3.1.2
 pytorch-lightning==2.2.3
 pytorch-msssim==1.0.0
