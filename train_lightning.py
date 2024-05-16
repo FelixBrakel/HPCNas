@@ -13,6 +13,8 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, Ea
 from par_resnet import ParResNet
 from grouped_resnet import GroupedResNet
 
+
+
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
@@ -41,6 +43,23 @@ def setup():
 def create_model(model_name, model_hparams):
     if model_name in model_dict:
         return model_dict[model_name](**model_hparams)
+
+
+class DelayedStartEarlyStopping(EarlyStopping):
+    def __init__(self, start_epoch, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # set start_epoch to None or 0 for no delay
+        self.start_epoch = start_epoch
+
+    def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        if (self.start_epoch is not None) and (trainer.current_epoch < self.start_epoch):
+            return
+        super().on_train_epoch_end(trainer, pl_module)
+
+    def on_validation_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        if (self.start_epoch is not None) and (trainer.current_epoch < self.start_epoch):
+            return
+        super().on_validation_end(trainer, pl_module)
 
 
 class ResNetModule(pl.LightningModule):
@@ -81,7 +100,7 @@ class ResNetModule(pl.LightningModule):
 
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=[20], gamma=0.1)
+            optimizer, milestones=[15, 30], gamma=0.1)
         return [optimizer], [scheduler]
 
     def training_step(self, batch, batch_idx):
@@ -111,7 +130,7 @@ class ResNetModule(pl.LightningModule):
         self.log('test_acc', acc, sync_dist=True)
 
 
-def train_model(model_name, dataset="imagenet", save_name=None, nodes=2, **kwargs):
+def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes=2, **kwargs):
     """
     Inputs:
         model_name - Name of the model you want to run.
@@ -146,13 +165,13 @@ def train_model(model_name, dataset="imagenet", save_name=None, nodes=2, **kwarg
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=0
+        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=0
+        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=0
+        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=workers
     )
     # logger = TensorBoardLogger(
     #     os.path.join(CHECKPOINT_PATH, save_name),
@@ -168,9 +187,10 @@ def train_model(model_name, dataset="imagenet", save_name=None, nodes=2, **kwarg
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
-            EarlyStopping(
+            DelayedEarlyStopping(
+		start_epoch=16
                 monitor="val_acc",
-                min_delta=0.01,
+                min_delta=0.001,
                 patience=3,
                 verbose=False,
                 mode="max"
@@ -230,6 +250,7 @@ def main():
     model, results = train_model(
         model_name="GroupedResNet",
         nodes=args.nodes,
+	workers=args.workers,
         dataset=args.dataset,
         model_hparams={
             "in_channels": 3,
