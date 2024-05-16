@@ -99,9 +99,18 @@ class ResNetModule(pl.LightningModule):
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
-        scheduler = optim.lr_scheduler.MultiStepLR(
-            optimizer, milestones=[15, 30], gamma=0.1)
-        return [optimizer], [scheduler]
+        # scheduler = optim.lr_scheduler.MultiStepLR(
+        #     optimizer, milestones=[15, 30], gamma=0.1)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.1, patience=3,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_loss"
+            }
+        }
 
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
@@ -117,10 +126,13 @@ class ResNetModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         imgs, labels = batch
-        preds = self.model(imgs).argmax(dim=-1)
-        acc = (labels == preds).float().mean()
+        preds = self.model(imgs)
+        loss = self.loss_module(preds, labels)
+        acc = (labels == preds.argmax(dim=-1)).float().mean()
+
         # By default logs it per epoch (weighted average over batches)
         self.log('val_acc', acc, sync_dist=True)
+        self.log('val_loss', loss, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         imgs, labels = batch
@@ -165,13 +177,13 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=64, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=64, shuffle=False, drop_last=False, num_workers=workers
+        val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=64, shuffle=False, drop_last=False, num_workers=workers
+        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     # logger = TensorBoardLogger(
     #     os.path.join(CHECKPOINT_PATH, save_name),
@@ -187,8 +199,8 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
-            DelayedEarlyStopping(
-		start_epoch=16
+            DelayedStartEarlyStopping(
+                start_epoch=16,
                 monitor="val_acc",
                 min_delta=0.001,
                 patience=3,
@@ -197,6 +209,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             )
         ],
         enable_progress_bar=True,
+        precision="16-mixed"
         # logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
