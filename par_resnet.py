@@ -111,8 +111,7 @@ class ParResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            partitions=1,
-            k=256, l=256, m=384, n=384):
+            k=256, l=256, m=384, n=384, groups=1):
         super(ParResNet, self).__init__()
 
         self.stem = CIFARStem(in_channels, 320)
