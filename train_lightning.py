@@ -256,11 +256,19 @@ def main():
         default="imagenet",
         help="path to the dataset (relative to DATASET_ROOT)"
     )
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="GroupedResNet",
+        help="path to the dataset (relative to DATASET_ROOT)"
+    )
+
     args = parser.parse_args()
 
     setup()
     model, results = train_model(
-        model_name="GroupedResNet",
+        model_name=args.model ,
         nodes=args.nodes,
 	workers=args.workers,
         dataset=args.dataset,
