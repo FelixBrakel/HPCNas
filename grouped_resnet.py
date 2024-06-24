@@ -107,6 +107,7 @@ class Inception_ResNet_A(nn.Module):
         )
         self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
@@ -128,6 +129,7 @@ class Inception_ResNet_B(nn.Module):
         )
         self.conv = nn.Conv2d(384, 1088, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
@@ -175,6 +177,7 @@ class Inception_ResNet_C(nn.Module):
         )
         self.conv = nn.Conv2d(448, 2080, 1, stride=1, padding=0, bias=True)
         self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)

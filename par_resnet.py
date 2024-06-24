@@ -22,11 +22,14 @@ class CellA(nn.Module):
             Conv2d(48, 64, 3, stride=1, padding=1, bias=False)
         )
 
+        self.conv = nn.Conv2d(128, 320, 1, stride=1, padding=0, bias=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x2 = self.branch_2(x)
         x_res = torch.cat((x0, x1, x2), dim=1)
+        x_res = self.conv(x_res)
 
         return x_res
 
@@ -44,10 +47,13 @@ class CellB(nn.Module):
             Conv2d(160, 192, (7, 1), stride=1, padding=(3, 0), bias=False)
         )
 
+        self.conv = nn.Conv2d(384, 1088, 1, stride=1, padding=0, bias=True)
+
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x_res = torch.cat((x0, x1), dim=1)
+        x_res = self.conv(x_res)
 
         return x_res
 
@@ -65,11 +71,14 @@ class CellC(nn.Module):
             Conv2d(192, 224, (1, 3), stride=1, padding=(0, 1), bias=False),
             Conv2d(224, 256, (3, 1), stride=1, padding=(1, 0), bias=False)
         )
+        self.conv = nn.Conv2d(448, 2080, 1, stride=1, padding=0, bias=True)
 
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x_res = torch.cat((x0, x1), dim=1)
+        x_res = self.conv(x_res)
+
         return x_res
 
 
@@ -85,12 +94,13 @@ class MacroStage(nn.Module):
         self.cell_scale = stem_scale
 
     def forward(self, x):
-        cell_out = []
-        for p in range(self.partitions):
-            cell_out.append(self.cells[p](x))
-        cell_out = torch.cat(cell_out, dim=1)
+        cell_out = self.cells[0](x)
 
-        return self.relu(self.conv(cell_out) * self.cell_scale + x)
+        for p in range(1, self.partitions):
+            cell_out += self.cells[p](x)
+        # cell_out = torch.cat(cell_out, dim=1)
+
+        return self.relu(cell_out * self.cell_scale + x)
 
 
 class ParResNet(nn.Module):
