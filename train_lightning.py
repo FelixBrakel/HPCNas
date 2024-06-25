@@ -101,13 +101,13 @@ class ResNetModule(pl.LightningModule):
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', factor=0.1, patience=3,
+            optimizer, mode='max', factor=0.25, patience=2,
         )
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_loss"
+                "monitor": "val_acc"
             }
         }
 
@@ -176,13 +176,13 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=512, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
+        val_set, batch_size=512, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
+        test_set, batch_size=512, shuffle=False, drop_last=False, num_workers=workers
     )
     # logger = TensorBoardLogger(
     #     os.path.join(CHECKPOINT_PATH, save_name),
@@ -303,7 +303,7 @@ def main():
         },
         optimizer_name="Adam",
         optimizer_hparams={
-            "lr": 0.1,
+            "lr": 0.025,
         }
     )
 

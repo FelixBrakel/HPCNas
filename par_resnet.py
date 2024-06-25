@@ -198,7 +198,7 @@ class MoEReductionB(nn.Module):
         return torch.cat((x0, x1, x2, x3), dim=1)
 
 
-class MoEResNet(nn.Module):
+class SplitResNet(nn.Module):
     def __init__(
             self,
             in_channels=3,
@@ -206,11 +206,11 @@ class MoEResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            partitions=2,
+            groups=1,
             k=256, l=256, m=384, n=384):
-        super(MoEResNet, self).__init__()
+        super(SplitResNet, self).__init__()
 
-        self.stem = CIFARStem(in_channels, 320)
+        self.stem = Stem(in_channels, 320)
 
         self.stage00 = []
         self.stage01 = []
