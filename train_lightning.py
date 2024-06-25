@@ -176,13 +176,13 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-        val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+        val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     # logger = TensorBoardLogger(
     #     os.path.join(CHECKPOINT_PATH, save_name),
@@ -264,20 +264,41 @@ def main():
         help="path to the dataset (relative to DATASET_ROOT)"
     )
 
+    parser.add_argument(
+        "--s0",
+        type=int,
+        default=10,
+        help="path to the dataset (relative to DATASET_ROOT)"
+    )
+
+    parser.add_argument(
+        "--s1",
+        type=int,
+        default=20,
+        help="path to the dataset (relative to DATASET_ROOT)"
+    )
+
+    parser.add_argument(
+        "--s2",
+        type=int,
+        default=10,
+        help="path to the dataset (relative to DATASET_ROOT)"
+    )
+
     args = parser.parse_args()
 
     setup()
     model, results = train_model(
-        model_name=args.model ,
+        model_name=args.model,
         nodes=args.nodes,
-	workers=args.workers,
+        workers=args.workers,
         dataset=args.dataset,
         model_hparams={
             "in_channels": 3,
             "classes": 100,
-            "s0_depth": 10,
-            "s1_depth": 20,
-            "s2_depth": 10,
+            "s0_depth": args.s0,
+            "s1_depth": args.s1,
+            "s2_depth": args.s2,
             "groups": args.groups,
         },
         optimizer_name="Adam",
