@@ -8,9 +8,8 @@ import numpy as np
 class CellA(nn.Module):
     out_channels = 64 + 32 + 32
 
-    def __init__(self, in_channels, scale=1.0):
+    def __init__(self, in_channels):
         super(CellA, self).__init__()
-        self.scale = scale
         self.branch_0 = Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False)
         self.branch_1 = nn.Sequential(
             Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False),
@@ -37,9 +36,8 @@ class CellA(nn.Module):
 class CellB(nn.Module):
     out_channels = 192 + 192
 
-    def __init__(self, in_channels, scale=1.0):
+    def __init__(self, in_channels):
         super(CellB, self).__init__()
-        self.scale = scale
         self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
         self.branch_1 = nn.Sequential(
             Conv2d(in_channels, 128, 1, stride=1, padding=0, bias=False),
@@ -61,9 +59,8 @@ class CellB(nn.Module):
 class CellC(nn.Module):
     out_channels = 192 + 256
 
-    def __init__(self, in_channels, scale=1.0, activation=True):
+    def __init__(self, in_channels, activation=True):
         super(CellC, self).__init__()
-        self.scale = scale
         self.activation = activation
         self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
         self.branch_1 = nn.Sequential(
@@ -89,17 +86,17 @@ class MacroStage(nn.Module):
         self.name = "MacroStageA"
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU()
         self.cell_scale = cell_scale
 
     def forward(self, x):
         cell_out = self.cells[0](x)
 
-        for p in range(1, self.partitions):
-            cell_out += self.cells[p](x)
+        # for p in range(1, self.partitions):
+        #     cell_out += self.cells[p](x)
         # cell_out = torch.cat(cell_out, dim=1)
-
-        return self.relu(cell_out * self.cell_scale + x)
+        res = self.relu(cell_out * self.cell_scale + x)
+        return res
 
 
 class ParResNet(nn.Module):
