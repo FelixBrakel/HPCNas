@@ -208,7 +208,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             )
         ],
         enable_progress_bar=True,
-        precision="16-mixed"
+        precision="bf16-mixed"
         # logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
