@@ -92,8 +92,8 @@ class MacroStage(nn.Module):
     def forward(self, x):
         cell_out = self.cells[0](x)
 
-        # for p in range(1, self.partitions):
-        #     cell_out += self.cells[p](x)
+        for p in range(1, self.partitions):
+            cell_out += self.cells[p](x)
         # cell_out = torch.cat(cell_out, dim=1)
         res = self.relu(cell_out * self.cell_scale + x)
         return res
