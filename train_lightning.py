@@ -201,8 +201,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             DelayedStartEarlyStopping(
                 start_epoch=16,
                 monitor="val_acc",
-                min_delta=0.001,
-                patience=3,
+                patience=4,
                 verbose=False,
                 mode="max"
             )
