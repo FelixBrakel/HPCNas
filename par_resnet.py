@@ -83,15 +83,14 @@ class CellC(nn.Module):
 
 
 class MacroStage(nn.Module):
-    def __init__(self, cell, partitions: int, cell_channels: int, stem_scale: float):
+    def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float):
         super(MacroStage, self).__init__()
 
         self.name = "MacroStageA"
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
         self.relu = nn.ReLU(inplace=True)
-        self.conv = nn.Conv2d(cell.out_channels * partitions, cell_channels, 1, stride=1, padding=0, bias=True)
-        self.cell_scale = stem_scale
+        self.cell_scale = cell_scale
 
     def forward(self, x):
         cell_out = self.cells[0](x)
