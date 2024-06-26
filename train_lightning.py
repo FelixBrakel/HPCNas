@@ -101,7 +101,7 @@ class ResNetModule(pl.LightningModule):
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='max', factor=0.25, patience=2,
+            optimizer, mode='max', factor=0.25, patience=2, eps=0.002
         )
         return {
             "optimizer": optimizer,
@@ -201,7 +201,8 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             DelayedStartEarlyStopping(
                 start_epoch=16,
                 monitor="val_acc",
-                patience=4,
+                patience=3,
+                min_delta=0.001,
                 verbose=False,
                 mode="max"
             )
