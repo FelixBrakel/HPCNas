@@ -7,17 +7,18 @@ import torch.utils.data as data
 import argparse
 import os
 
-from torchvision.datasets import CIFAR100, Imagenette, ImageNet, ImageFolder
+from torchvision.datasets import ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from par_resnet import ParResNet
 from grouped_resnet import GroupedResNet
-
+from split_resnet import SplitResNet
 
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
     'GroupedResNet': GroupedResNet,
+    'SplitResNet': SplitResNet
 }
 
 
@@ -176,13 +177,13 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-            val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+            val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
     )
     # logger = TensorBoardLogger(
     #     os.path.join(CHECKPOINT_PATH, save_name),
@@ -201,7 +202,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             DelayedStartEarlyStopping(
                 start_epoch=16,
                 monitor="val_acc",
-                patience=3,
+                patience=4,
                 min_delta=0.001,
                 verbose=False,
                 mode="max"
