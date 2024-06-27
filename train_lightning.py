@@ -63,7 +63,7 @@ class DelayedStartEarlyStopping(EarlyStopping):
 
 
 class ResNetModule(pl.LightningModule):
-    def __init__(self, model_name, model_hparams, **kwargs):
+    def __init__(self, model_name, model_hparams, short=False, **kwargs):
         """
         Inputs:
             model_name - Name of the model/CNN to run. Used for creating the model
@@ -72,6 +72,7 @@ class ResNetModule(pl.LightningModule):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary.
         """
         super().__init__()
+        self.short = short
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
         # Create model
@@ -101,9 +102,15 @@ class ResNetModule(pl.LightningModule):
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='max', factor=0.25, patience=1, eps=0.002
-        )
+        if self.short:
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
+        else:
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, mode='max', factor=0.25, patience=1, eps=0.002
+            )
+
+
+
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -142,7 +149,7 @@ class ResNetModule(pl.LightningModule):
         self.log('test_acc', acc, sync_dist=True)
 
 
-def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes=2, **kwargs):
+def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes=2, short=False, **kwargs):
     """
     Inputs:
         model_name - Name of the model you want to run.
@@ -195,7 +202,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
         accelerator="gpu",
         devices="auto",
         num_nodes=nodes,
-        max_epochs=80,
+        max_epochs=15 if short else 80,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
@@ -220,6 +227,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
     #     print(f"Found pretrained model at {pretrained_filename}, loading...")
     #     model = ResNetModule.load_from_checkpoint(pretrained_filename)
     # else:
+    kwargs['short'] = short
     kwargs['dataset'] = dataset
     model = ResNetModule(model_name=model_name, **kwargs)
     trainer.fit(model, train_loader, val_loader)
@@ -286,6 +294,13 @@ def main():
         help="path to the dataset (relative to DATASET_ROOT)"
     )
 
+    parser.add_argument(
+        "--short",
+        type=bool,
+        default=False,
+        help="Short training"
+    )
+
     args = parser.parse_args()
 
     setup()
@@ -304,8 +319,9 @@ def main():
         },
         optimizer_name="Adam",
         optimizer_hparams={
-            "lr": 0.025,
-        }
+            "lr": 0.05 if args.short else 0.025,
+        },
+        short=args.short
     )
 
 
