@@ -192,10 +192,15 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
     test_loader = data.DataLoader(
         test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
     )
-    # logger = TensorBoardLogger(
-    #     os.path.join(CHECKPOINT_PATH, save_name),
-    #     default_hp_metric=False
-    # )
+    logger = TensorBoardLogger(
+        save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
+        name=f""
+             f"{kwargs['model_hparams']['groups']}_"
+             f"{kwargs['model_hparams']['s0']}_"
+             f"{kwargs['model_hparams']['s1']}_"
+             f"{kwargs['model_hparams']['s2']}_{'short' if short else 'full'}",
+        default_hp_metric=False
+    )
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
@@ -216,8 +221,8 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             )
         ],
         enable_progress_bar=True,
-        precision="bf16-mixed"
-        # logger=logger
+        precision="bf16-mixed",
+        logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
 
