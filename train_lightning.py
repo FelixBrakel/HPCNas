@@ -114,8 +114,6 @@ class ResNetModule(pl.LightningModule):
                 threshold_mode='abs'
             )
 
-
-
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -204,7 +202,8 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
              f"{kwargs['model_hparams']['s0_depth']}_"
              f"{kwargs['model_hparams']['s1_depth']}_"
              f"{kwargs['model_hparams']['s2_depth']}_{'short' if short else 'full'}",
-        default_hp_metric=False
+        default_hp_metric=False,
+        log_graph=True
     )
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(

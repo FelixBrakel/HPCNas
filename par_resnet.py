@@ -6,8 +6,6 @@ import numpy as np
 
 
 class CellA(nn.Module):
-    out_channels = 64 + 32 + 32
-
     def __init__(self, in_channels):
         super(CellA, self).__init__()
         self.branch_0 = Conv2d(in_channels, 32, 1, stride=1, padding=0, bias=False)
@@ -34,8 +32,6 @@ class CellA(nn.Module):
 
 
 class CellB(nn.Module):
-    out_channels = 192 + 192
-
     def __init__(self, in_channels):
         super(CellB, self).__init__()
         self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
@@ -57,11 +53,8 @@ class CellB(nn.Module):
 
 
 class CellC(nn.Module):
-    out_channels = 192 + 256
-
-    def __init__(self, in_channels, activation=True):
+    def __init__(self, in_channels):
         super(CellC, self).__init__()
-        self.activation = activation
         self.branch_0 = Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False)
         self.branch_1 = nn.Sequential(
             Conv2d(in_channels, 192, 1, stride=1, padding=0, bias=False),
@@ -86,7 +79,7 @@ class MacroStage(nn.Module):
         self.name = "MacroStageA"
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
-        self.relu = nn.ReLU()
+        self.relus = nn.ReLU(inplace=True)
         self.cell_scale = cell_scale
 
     def forward(self, x):
@@ -94,9 +87,7 @@ class MacroStage(nn.Module):
 
         for p in range(1, self.partitions):
             cell_out += self.cells[p](x)
-        # cell_out = torch.cat(cell_out, dim=1)
-        res = self.relu(cell_out * self.cell_scale + x)
-        return res
+        return self.relu(x + self.cell_scale * cell_out)
 
 
 class ParResNet(nn.Module):

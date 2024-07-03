@@ -75,22 +75,6 @@ class Stem(nn.Module):
         return torch.cat((x0, x1, x2, x3), dim=1)
 
 
-class CIFARStem(nn.Module):
-    """
-    This is used as an initial layer directly after the
-    image input.
-    """
-
-    def __init__(self, C_in=3, C_out=64):
-        super(CIFARStem, self).__init__()
-        self.seq = nn.Sequential(
-            nn.Conv2d(C_in, C_out, 3, padding=1, bias=False), nn.BatchNorm2d(C_out)
-        )
-
-    def forward(self, x):
-        return self.seq(x)
-
-
 class Inception_ResNet_A(nn.Module):
     def __init__(self, in_channels, scale=1.0, groups=1):
         super(Inception_ResNet_A, self).__init__()
