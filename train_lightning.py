@@ -178,7 +178,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
     test_set = ImageFolder(
-        root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
+        root=os.path.join(DATASET_ROOT, dataset, "val"), transform=test_transform
     )
     train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
 
