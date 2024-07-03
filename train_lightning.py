@@ -106,7 +106,12 @@ class ResNetModule(pl.LightningModule):
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
         else:
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode='max', factor=0.25, patience=1, eps=0.002
+                optimizer,
+                mode='max',
+                factor=0.25,
+                patience=1,
+                threshold=0.002,
+                threshold_mode='abs'
             )
 
 
