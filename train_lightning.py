@@ -196,9 +196,9 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
         save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
         name=f""
              f"{kwargs['model_hparams']['groups']}_"
-             f"{kwargs['model_hparams']['s0']}_"
-             f"{kwargs['model_hparams']['s1']}_"
-             f"{kwargs['model_hparams']['s2']}_{'short' if short else 'full'}",
+             f"{kwargs['model_hparams']['s0_depth']}_"
+             f"{kwargs['model_hparams']['s1_depth']}_"
+             f"{kwargs['model_hparams']['s2_depth']}_{'short' if short else 'full'}",
         default_hp_metric=False
     )
     # Create a PyTorch Lightning trainer with the generation callback
