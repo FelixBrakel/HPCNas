@@ -79,7 +79,7 @@ class MacroStage(nn.Module):
         self.name = "MacroStageA"
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
-        self.relus = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=True)
         self.cell_scale = cell_scale
 
     def forward(self, x):
