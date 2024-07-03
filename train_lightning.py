@@ -301,8 +301,7 @@ def main():
 
     parser.add_argument(
         "--short",
-        type=bool,
-        default=False,
+        action='store_true',
         help="Short training"
     )
 
