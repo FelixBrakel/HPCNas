@@ -1,3 +1,5 @@
+from enum import Enum
+
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 import torch
@@ -27,6 +29,12 @@ model_dict = {
 DATASET_ROOT = "./data"
 # Path to the folder where the pretrained models are saved
 CHECKPOINT_PATH = "./saved_models/"
+
+
+class TrainDuration(Enum):
+    SHORT = "short"
+    DEFAULT = "default"
+    LONG = "long"
 
 
 def setup():
@@ -64,7 +72,7 @@ class DelayedStartEarlyStopping(EarlyStopping):
 
 
 class ResNetModule(pl.LightningModule):
-    def __init__(self, model_name, model_hparams, short=False, **kwargs):
+    def __init__(self, model_name, model_hparams, duration=TrainDuration.DEFAULT, **kwargs):
         """
         Inputs:
             model_name - Name of the model/CNN to run. Used for creating the model
@@ -73,7 +81,7 @@ class ResNetModule(pl.LightningModule):
             optimizer_hparams - Hyperparameters for the optimizer, as dictionary.
         """
         super().__init__()
-        self.short = short
+        self.duration = duration
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
         # Create model
@@ -103,14 +111,21 @@ class ResNetModule(pl.LightningModule):
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
-        if self.short:
+        if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
-        else:
+        elif self.duration == TrainDuration.DEFAULT:
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode='max', factor=0.25, patience=1, eps=0.002
+                optimizer,
+                mode='max',
+                factor=0.25,
+                patience=1,
+                threshold=0.002,
+                threshold_mode='abs'
             )
-
-
+        elif self.duration == TrainDuration.LONG:
+            scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
+        else:
+            raise Exception(f"Unknown duration value: {self.duration}")
 
         return {
             "optimizer": optimizer,
@@ -150,7 +165,15 @@ class ResNetModule(pl.LightningModule):
         self.log('test_acc', acc, sync_dist=True)
 
 
-def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes=2, short=False, **kwargs):
+def train_model(
+    model_name,
+    dataset="imagenet",
+    workers=0,
+    save_name=None,
+    nodes=2,
+    duration=TrainDuration.DEFAULT,
+    **kwargs
+):
     """
     Inputs:
         model_name - Name of the model you want to run.
@@ -179,31 +202,47 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
     test_set = ImageFolder(
-        root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
+        root=os.path.join(DATASET_ROOT, dataset, "val"), transform=test_transform
     )
     train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=128, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
     )
     val_loader = data.DataLoader(
-            val_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
+            val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
-        test_set, batch_size=128, shuffle=False, drop_last=False, num_workers=workers
+        test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
     )
-    # logger = TensorBoardLogger(
-    #     os.path.join(CHECKPOINT_PATH, save_name),
-    #     default_hp_metric=False
-    # )
+    logger = TensorBoardLogger(
+        save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
+        name=f""
+             f"{kwargs['model_hparams']['groups']}_"
+             f"{kwargs['model_hparams']['s0_depth']}_"
+             f"{kwargs['model_hparams']['s1_depth']}_"
+             f"{kwargs['model_hparams']['s2_depth']}_{duration}",
+        default_hp_metric=False,
+        log_graph=True
+    )
+
+    if duration == TrainDuration.SHORT:
+        epochs = 15
+    elif duration == TrainDuration.DEFAULT:
+        epochs = 80
+    elif duration == TrainDuration.LONG:
+        epochs = 200
+    else:
+        raise Exception(f"Unknown duration value: {duration}")
+
     # Create a PyTorch Lightning trainer with the generation callback
     trainer = pl.Trainer(
         default_root_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
         accelerator="gpu",
         devices="auto",
         num_nodes=nodes,
-        max_epochs=15 if short else 80,
+        max_epochs=epochs,
         callbacks=[
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
@@ -217,8 +256,8 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
             )
         ],
         enable_progress_bar=True,
-        precision="bf16-mixed"
-        # logger=logger
+        precision="bf16-mixed",
+        logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
 
@@ -228,7 +267,7 @@ def train_model(model_name, dataset="imagenet", workers=0, save_name=None, nodes
     #     print(f"Found pretrained model at {pretrained_filename}, loading...")
     #     model = ResNetModule.load_from_checkpoint(pretrained_filename)
     # else:
-    kwargs['short'] = short
+    kwargs['duration'] = duration
     kwargs['dataset'] = dataset
     model = ResNetModule(model_name=model_name, **kwargs)
     trainer.fit(model, train_loader, val_loader)
@@ -296,13 +335,24 @@ def main():
     )
 
     parser.add_argument(
-        "--short",
-        type=bool,
-        default=False,
-        help="Short training"
+        "--duration",
+        type=TrainDuration,
+        choices=list(TrainDuration),
+        default=TrainDuration.DEFAULT,
+        help="Training duration: short, default, or long"
     )
 
     args = parser.parse_args()
+
+
+    if args.duration == TrainDuration.SHORT:
+        lr = 0.05
+    elif args.duration == TrainDuration.DEFAULT:
+        lr = 0.0025
+    elif args.duration == TrainDuration.LONG:
+        lr = 0.045
+    else:
+        raise Exception(f"Unknown duration value: {args.duration}")
 
     setup()
     model, results = train_model(
@@ -320,9 +370,9 @@ def main():
         },
         optimizer_name="Adam",
         optimizer_hparams={
-            "lr": 0.05 if args.short else 0.025,
+            "lr": lr,
         },
-        short=args.short
+        duration=args.duration
     )
 
 

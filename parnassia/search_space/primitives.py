@@ -202,54 +202,30 @@ class Reduction_A(ops.AbstractPrimitive):
         return None
 
 
-class Reduction_B(ops.AbstractPrimitive):
-    def __init__(self, C_in):
-        super().__init__(locals())
+class Reduction_B(nn.Module):
+    def __init__(self, in_channels):
+        super(Reduction_B, self).__init__()
         self.branch_0 = nn.Sequential(
-            Conv2d(
-                C_in, 256, 1,
-                stride=1, padding=0, bias=False
-            ),
-            Conv2d(
-                256, 384, 3,
-                stride=2, padding=0, bias=False
-            )
+            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 384, 3, stride=2, padding=0, bias=False)
         )
         self.branch_1 = nn.Sequential(
-            Conv2d(
-                C_in, 256, 1,
-                stride=1, padding=0, bias=False
-            ),
-            Conv2d(
-                256, 288, 3,
-                stride=2, padding=0, bias=False
-            ),
+            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 288, 3, stride=2, padding=0, bias=False),
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(
-                C_in, 256, 1,
-                stride=1, padding=0, bias=False
-            ),
-            Conv2d(
-                256, 288, 3,
-                stride=1, padding=1, bias=False
-            ),
-            Conv2d(
-                288, 320, 3,
-                stride=2, padding=0, bias=False
-            )
+            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
+            Conv2d(256, 288, 3, stride=1, padding=1, bias=False),
+            Conv2d(288, 320, 3, stride=2, padding=0, bias=False)
         )
         self.branch_3 = nn.MaxPool2d(3, stride=2, padding=0)
 
-    def forward(self, x, edge_data=None):
+    def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x2 = self.branch_2(x)
         x3 = self.branch_3(x)
         return torch.cat((x0, x1, x2, x3), dim=1)
-
-    def get_embedded_ops(self):
-        return None
 
 
 class FactorizedReduce(ops.AbstractPrimitive):
