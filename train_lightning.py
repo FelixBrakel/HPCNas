@@ -88,7 +88,7 @@ class ResNetModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32)
+        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.bfloat16)
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -225,13 +225,14 @@ def train_model(
         default_hp_metric=False,
         log_graph=True
     )
-
+    stop = 16
     if duration == TrainDuration.SHORT:
         epochs = 15
     elif duration == TrainDuration.DEFAULT:
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
+        stop = 100
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -246,7 +247,7 @@ def train_model(
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
             DelayedStartEarlyStopping(
-                start_epoch=16,
+                start_epoch=stop,
                 monitor="val_acc",
                 patience=3,
                 min_delta=0.001,
