@@ -10,13 +10,14 @@ import os
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
-from par_resnet import ParResNet
+from par_resnet import ParResNet, ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
 
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
+    'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
     'SplitResNet': SplitResNet
 }
