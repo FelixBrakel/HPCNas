@@ -42,6 +42,7 @@ def setup():
     # torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    #torch.set_default_device("cuda:0")
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.set_float32_matmul_precision('medium')
 
@@ -89,7 +90,7 @@ class ResNetModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.bfloat16)
+        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32).to("cuda:0")
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -233,7 +234,7 @@ def train_model(
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
-        stop = 100
+        stop = 160
     else:
         raise Exception(f"Unknown duration value: {duration}")
 

@@ -92,27 +92,29 @@ class MacroStage(nn.Module):
 
 class ParMacroStage(nn.Module):
     def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float):
-        super(MacroStage, self).__init__()
+        super(ParMacroStage, self).__init__()
 
         self.partitions = partitions
         self.cells = nn.ModuleList()
         self.cell_scale = cell_scale
-
+        self.devices = [
+            torch.device(f'cuda:{i % torch.cuda.device_count()}') for i in range(self.partitions)
+        ]
         # Distribute cells across available GPUs
         for i in range(self.partitions):
-            device = torch.device(f'cuda:{i % torch.cuda.device_count()}')
-            self.cells.append(cell(cell_channels).to(device))
+            self.cells.append(cell(cell_channels).to(self.devices[i]))
 
         self.relu = nn.ReLU()
 
     def forward(self, x):
-        cell_out = self.cells[0](x.to(self.cells[0].weight.device))
+        print(x.device)
+        cell_out = self.cells[0](x)
         
         for p in range(1, self.partitions):
-            x_device = x.to(self.cells[p].weight.device)
-            cell_out = cell_out.to(self.cells[p].weight.device) + self.cells[p](x_device)
+            x_device = x.to(self.devices[p])
+            cell_out = cell_out + self.cells[p](x_device).to(self.devices[0])
 
-        res = self.relu(cell_out * self.cell_scale + x.to(cell_out.device))
+        res = self.relu(cell_out * self.cell_scale + x)
         return res
 
 
@@ -201,8 +203,11 @@ class ParParResNet(nn.Module):
         self.linear = nn.Linear(1536, classes)
 
     def forward(self, x):
+        print(x.device)
         _x = self.stem(x)
+        print(_x.device)
         _x = self.stage1(_x)
+        print(_x.device)
         _x = self.reduction1(_x)
         _x = self.stage2(_x)
         _x = self.reduction2(_x)
