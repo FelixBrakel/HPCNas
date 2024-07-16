@@ -122,7 +122,7 @@ class ResNetModule(pl.LightningModule):
                 threshold_mode='abs'
             )
         elif self.duration == TrainDuration.LONG:
-            scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
+            scheduler = optim.lr_scheduler.ExponentialLR(optimizer, 0.94)
         else:
             raise Exception(f"Unknown duration value: {self.duration}")
 
@@ -255,7 +255,7 @@ def train_model(
             )
         ],
         enable_progress_bar=True,
-        precision="bf16-mixed",
+        precision="bf16-true",
         logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
