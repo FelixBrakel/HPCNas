@@ -90,7 +90,7 @@ class ResNetModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32).to("cuda:0")
+        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.bfloat16)
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -132,7 +132,8 @@ class ResNetModule(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_acc"
+                "monitor": "val_acc",
+                "frequency": 2
             }
         }
 
