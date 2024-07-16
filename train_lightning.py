@@ -128,12 +128,13 @@ class ResNetModule(pl.LightningModule):
         else:
             raise Exception(f"Unknown duration value: {self.duration}")
 
+        freq = 1 if self.duration != TrainDuration.LONG else 2
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
                 "monitor": "val_acc",
-                "frequency": 2
+                "frequency": freq
             }
         }
 
