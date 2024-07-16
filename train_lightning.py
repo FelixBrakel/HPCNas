@@ -106,6 +106,8 @@ class ResNetModule(pl.LightningModule):
                 self.parameters(), **self.hparams.optimizer_hparams)
         elif self.hparams.optimizer_name == "SGD":
             optimizer = optim.SGD(self.parameters(), **self.hparams.optimizer_hparams)
+        elif self.hparams.optimizer_name == "RMS":
+            optimizer = optim.RMSprop(self.parameters(), lr=self.hparams.optimizer_hparams['lr'], weight_decay=0.1)
         else:
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
@@ -372,7 +374,7 @@ def main():
             "s2_depth": args.s2,
             "groups": args.groups,
         },
-        optimizer_name="Adam",
+        optimizer_name="Adam" if args.durations != TrainDuration.LONG else "RMS",
         optimizer_hparams={
             "lr": lr,
         },
