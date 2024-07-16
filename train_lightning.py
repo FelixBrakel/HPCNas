@@ -374,7 +374,7 @@ def main():
             "s2_depth": args.s2,
             "groups": args.groups,
         },
-        optimizer_name="Adam" if args.durations != TrainDuration.LONG else "RMS",
+        optimizer_name="Adam" if args.duration != TrainDuration.LONG else "RMS",
         optimizer_hparams={
             "lr": lr,
         },
