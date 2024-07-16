@@ -1,4 +1,4 @@
-name: parnassia
+name: hpcnas
 channels:
   - pytorch
   - nvidia

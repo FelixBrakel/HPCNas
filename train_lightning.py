@@ -12,13 +12,14 @@ import os
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
-from par_resnet import ParResNet
+from par_resnet import ParResNet, ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
 
 # Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
+    'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
     'SplitResNet': SplitResNet
 }
@@ -41,6 +42,7 @@ def setup():
     # torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+    #torch.set_default_device("cuda:0")
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.set_float32_matmul_precision('medium')
 
@@ -88,7 +90,7 @@ class ResNetModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32)
+        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.float32).to("cuda:0")
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -225,13 +227,14 @@ def train_model(
         default_hp_metric=False,
         log_graph=True
     )
-
+    stop = 16
     if duration == TrainDuration.SHORT:
         epochs = 15
     elif duration == TrainDuration.DEFAULT:
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
+        stop = 160
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -246,7 +249,7 @@ def train_model(
             ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
             LearningRateMonitor("epoch"),
             DelayedStartEarlyStopping(
-                start_epoch=16,
+                start_epoch=stop,
                 monitor="val_acc",
                 patience=3,
                 min_delta=0.001,
