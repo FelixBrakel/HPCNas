@@ -73,13 +73,13 @@ class CellC(nn.Module):
 
 
 class MacroStage(nn.Module):
-    def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float):
+    def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float, activation=True):
         super(MacroStage, self).__init__()
-
-        self.name = "MacroStageA"
+        self.activation = activation
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
-        self.relu = nn.ReLU(inplace=True)
+        if self.activation:
+            self.relu = nn.ReLU(inplace=True)
         self.cell_scale = cell_scale
 
     def forward(self, x):
@@ -87,13 +87,15 @@ class MacroStage(nn.Module):
 
         for p in range(1, self.partitions):
             cell_out += self.cells[p](x)
-        return self.relu(x + self.cell_scale * cell_out)
+        if self.activation:
+            return self.relu(x + self.cell_scale * cell_out)
+        return x + self.cell_scale * cell_out
 
 
 class ParMacroStage(nn.Module):
-    def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float):
+    def __init__(self, cell, partitions: int, cell_channels: int, cell_scale: float, activation=True):
         super(ParMacroStage, self).__init__()
-
+        self.activation = activation
         self.partitions = partitions
         self.cells = nn.ModuleList()
         self.cell_scale = cell_scale
@@ -103,8 +105,8 @@ class ParMacroStage(nn.Module):
         # Distribute cells across available GPUs
         for i in range(self.partitions):
             self.cells.append(cell(cell_channels).to(self.devices[i]))
-
-        self.relu = nn.ReLU()
+        if self.activation:
+            self.relu = nn.ReLU()
 
     def forward(self, x):
         print(x.device)
@@ -114,7 +116,9 @@ class ParMacroStage(nn.Module):
             x_device = x.to(self.devices[p])
             cell_out = cell_out + self.cells[p](x_device).to(self.devices[0])
 
-        res = self.relu(cell_out * self.cell_scale + x)
+        res = cell_out * self.cell_scale + x
+        if self.activation:
+            res = self.relu(res)
         return res
 
 
@@ -144,8 +148,9 @@ class ParResNet(nn.Module):
         self.reduction2 = Reduction_B(1088)
 
         self.stage3 = []
-        for _ in range(s2_depth):
+        for _ in range(s2_depth - 1):
             self.stage3.append(MacroStage(CellC, groups, 2080, 0.2))
+        self.stage3.append(MacroStage(CellC, groups, 2080, 0.2, activation=False))
         self.stage3 = nn.Sequential(*self.stage3)
 
         self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
