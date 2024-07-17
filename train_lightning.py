@@ -106,8 +106,6 @@ class ResNetModule(pl.LightningModule):
                 self.parameters(), **self.hparams.optimizer_hparams)
         elif self.hparams.optimizer_name == "SGD":
             optimizer = optim.SGD(self.parameters(), **self.hparams.optimizer_hparams)
-        elif self.hparams.optimizer_name == "RMS":
-            optimizer = optim.RMSprop(self.parameters(), lr=self.hparams.optimizer_hparams['lr'], weight_decay=0.1)
         else:
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
@@ -190,7 +188,7 @@ def train_model(
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
     # For training, we add some augmentation. Networks are too powerful and would overfit.
@@ -198,7 +196,7 @@ def train_model(
         transforms.RandomHorizontalFlip(),
         transforms.RandomResizedCrop(224, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
     # Loading the training dataset. We need to split it into a training and validation part
@@ -238,7 +236,7 @@ def train_model(
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
-        stop = 160
+        stop = 50
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -356,7 +354,7 @@ def main():
     elif args.duration == TrainDuration.DEFAULT:
         lr = 0.0025
     elif args.duration == TrainDuration.LONG:
-        lr = 0.045
+        lr = 0.025
     else:
         raise Exception(f"Unknown duration value: {args.duration}")
 
@@ -374,7 +372,7 @@ def main():
             "s2_depth": args.s2,
             "groups": args.groups,
         },
-        optimizer_name="Adam" if args.duration != TrainDuration.LONG else "RMS",
+        optimizer_name="Adam",
         optimizer_hparams={
             "lr": lr,
         },
