@@ -155,6 +155,7 @@ class ParResNet(nn.Module):
 
         self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(0.2)
         self.linear = nn.Linear(1536, classes)
 
     def forward(self, x):
@@ -168,6 +169,7 @@ class ParResNet(nn.Module):
         _x = self.conv(_x)
         _x = self.global_average_pooling(_x)
         _x = _x.view(_x.size(0), -1)
+        _x = self.dropout(_x)
         _x = self.linear(_x)
 
         return _x
