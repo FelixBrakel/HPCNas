@@ -118,7 +118,7 @@ class ResNetModule(pl.LightningModule):
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
-        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1, total_iters=5)
+        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1, total_iters=2)
 
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
@@ -127,12 +127,11 @@ class ResNetModule(pl.LightningModule):
                 optimizer,
                 mode='min',
                 factor=0.2,
-                patience=3,
-                threshold_mode='abs'
+                patience=2,
             )
 
         elif self.duration == TrainDuration.LONG:
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.92)
         else:
             raise Exception(f"Unknown duration value: {self.duration}")
 
@@ -141,14 +140,13 @@ class ResNetModule(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "train_loss",
+                "monitor": "val_loss",
                 "frequency": freq
             }
         }
 
     def lr_scheduler_step(self, scheduler: LRSchedulerTypeUnion, metric: Optional[Any]) -> None:
-        print(self.current_epoch)
-        if self.current_epoch < 4:
+        if self.current_epoch < 2:
             self.warmup_scheduler.step()
         else:
             super().lr_scheduler_step(scheduler, metric)
@@ -234,7 +232,7 @@ def train_model(
     test_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "val"), transform=test_transform
     )
-    train_set, val_set = torch.utils.data.random_split(train_set, [9/10, 1/10])
+    test_set, val_set = torch.utils.data.random_split(test_set, [9/10, 1/10])
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
@@ -256,14 +254,14 @@ def train_model(
         default_hp_metric=False,
         log_graph=True
     )
-    stop = 40
+    stop = 30
     if duration == TrainDuration.SHORT:
         epochs = 15
     elif duration == TrainDuration.DEFAULT:
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
-        stop = 120
+        stop = 60
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -381,7 +379,7 @@ def main():
     elif args.duration == TrainDuration.DEFAULT:
         lr = 0.025
     elif args.duration == TrainDuration.LONG:
-        lr = 0.1
+        lr = 0.05
     else:
         raise Exception(f"Unknown duration value: {args.duration}")
 
