@@ -110,6 +110,7 @@ class ResNetModule(pl.LightningModule):
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 299, 299))
         self.warmup_scheduler = None
+        self.reset_lr = None
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -132,6 +133,7 @@ class ResNetModule(pl.LightningModule):
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
         self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1)
+        self.reset_lr = optim.lr_scheduler.ConstantLR(optimizer, 10)
 
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
@@ -161,8 +163,10 @@ class ResNetModule(pl.LightningModule):
 
     def lr_scheduler_step(self, scheduler: LRSchedulerTypeUnion, metric: Optional[Any]) -> None:
         print(self.current_epoch)
-        if self.current_epoch < 1:
+        if self.current_epoch < 4:
             self.warmup_scheduler.step()
+        elif self.current_epoch == 5:
+            self.reset_lr.step()
         else:
             super().lr_scheduler_step(scheduler, metric)
 
