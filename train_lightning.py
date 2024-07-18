@@ -72,6 +72,22 @@ class DelayedStartEarlyStopping(EarlyStopping):
         super().on_validation_end(trainer, pl_module)
 
 
+from bisect import bisect_right
+
+
+class SeqLR(optim.lr_scheduler.SequentialLR):
+    def step(self, metric):
+        self.last_epoch += 1
+        idx = bisect_right(self._milestones, self.last_epoch)
+        scheduler = self._schedulers[idx]
+        if idx > 0 and self._milestones[idx - 1] == self.last_epoch:
+            scheduler.step(0)
+        else:
+            scheduler.step(metric)
+
+        self._last_lr = scheduler.get_last_lr()
+
+
 class ResNetModule(pl.LightningModule):
     def __init__(self, model_name, model_hparams, duration=TrainDuration.DEFAULT, **kwargs):
         """
@@ -115,20 +131,16 @@ class ResNetModule(pl.LightningModule):
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
         elif self.duration == TrainDuration.DEFAULT:
-            scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=0.1, total_iters=5) 
-            scheduler2 = optim.lr_scheduler.ReduceLROnPlateau(
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
                 mode='min',
                 factor=0.2,
                 patience=3,
                 threshold_mode='abs'
             )
-            scheduler = optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[5])
- 
+
         elif self.duration == TrainDuration.LONG:
-            scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=0.01, total_iters=5)
-            scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
-            scheduler = optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[5])
+            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
         else:
             raise Exception(f"Unknown duration value: {self.duration}")
 
@@ -141,6 +153,16 @@ class ResNetModule(pl.LightningModule):
                 "frequency": freq
             }
         }
+
+    # Learning rate warm-up
+    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
+        # manually warm up lr without a scheduler
+        if epoch < 5:
+            for pg in optimizer.param_groups:
+                pg["lr"] = 0.001
+
+        # update params
+        optimizer.step(closure=optimizer_closure)
 
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
