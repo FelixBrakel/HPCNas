@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional, Any
 
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
@@ -9,6 +10,7 @@ import torch.utils.data as data
 import argparse
 import os
 
+from pytorch_lightning.utilities.types import LRSchedulerTypeUnion
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
@@ -107,6 +109,7 @@ class ResNetModule(pl.LightningModule):
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 299, 299))
+        self.warmup_scheduler = None
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -128,6 +131,8 @@ class ResNetModule(pl.LightningModule):
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
+        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1)
+
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
         elif self.duration == TrainDuration.DEFAULT:
@@ -154,15 +159,12 @@ class ResNetModule(pl.LightningModule):
             }
         }
 
-    # Learning rate warm-up
-    def optimizer_step(self, epoch, batch_idx, optimizer, optimizer_closure):
-        # manually warm up lr without a scheduler
-        if epoch < 5:
-            for pg in optimizer.param_groups:
-                pg["lr"] = 0.001
-
-        # update params
-        optimizer.step(closure=optimizer_closure)
+    def lr_scheduler_step(self, scheduler: LRSchedulerTypeUnion, metric: Optional[Any]) -> None:
+        print(self.current_epoch)
+        if self.current_epoch < 1:
+            self.warmup_scheduler.step()
+        else:
+            super().lr_scheduler_step(scheduler, metric)
 
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
