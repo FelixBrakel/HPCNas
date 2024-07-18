@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Optional, Any
 
+import torchmetrics
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 import torch
@@ -74,22 +75,6 @@ class DelayedStartEarlyStopping(EarlyStopping):
         super().on_validation_end(trainer, pl_module)
 
 
-from bisect import bisect_right
-
-
-class SeqLR(optim.lr_scheduler.SequentialLR):
-    def step(self, metric):
-        self.last_epoch += 1
-        idx = bisect_right(self._milestones, self.last_epoch)
-        scheduler = self._schedulers[idx]
-        if idx > 0 and self._milestones[idx - 1] == self.last_epoch:
-            scheduler.step(0)
-        else:
-            scheduler.step(metric)
-
-        self._last_lr = scheduler.get_last_lr()
-
-
 class ResNetModule(pl.LightningModule):
     def __init__(self, model_name, model_hparams, duration=TrainDuration.DEFAULT, **kwargs):
         """
@@ -101,6 +86,8 @@ class ResNetModule(pl.LightningModule):
         """
         super().__init__()
         self.duration = duration
+        self.acc_metric = torchmetrics.Accuracy("multiclass", num_classes=100)
+        self.conf_metric = torchmetrics.ConfusionMatrix("multiclass", num_classes=100)
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
         # Create model
@@ -110,7 +97,6 @@ class ResNetModule(pl.LightningModule):
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 299, 299))
         self.warmup_scheduler = None
-        self.reset_lr = None
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -132,8 +118,7 @@ class ResNetModule(pl.LightningModule):
         # We will reduce the learning rate by 0.1 after 100 and 150 epochs
         # scheduler = optim.lr_scheduler.MultiStepLR(
         #     optimizer, milestones=[15, 30], gamma=0.1)
-        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1)
-        self.reset_lr = optim.lr_scheduler.ConstantLR(optimizer, 10)
+        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1, total_iters=5)
 
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
@@ -165,8 +150,6 @@ class ResNetModule(pl.LightningModule):
         print(self.current_epoch)
         if self.current_epoch < 4:
             self.warmup_scheduler.step()
-        elif self.current_epoch == 5:
-            self.reset_lr.step()
         else:
             super().lr_scheduler_step(scheduler, metric)
 
@@ -196,8 +179,20 @@ class ResNetModule(pl.LightningModule):
         imgs, labels = batch
         preds = self.model(imgs).argmax(dim=-1)
         acc = (labels == preds).float().mean()
+        self.acc_metric(preds, labels)
+        self.conf_metric(preds, labels)
         # By default logs it per epoch (weighted average over batches), and returns it afterwards
         self.log('test_acc', acc, sync_dist=True)
+
+    def on_test_end(self) -> None:
+        acc = self.acc_metric.compute()
+        print(f"accuracy metric: {acc}")
+        fig, ax = self.conf_metric.plot(cmap="YlGnBu")
+        # fig.set_dpi(400)
+        fig.set_size_inches(80, 70)
+        fig.set_layout_engine("compressed")
+        fig.show()
+        fig.savefig("conf.png")
 
 
 def train_model(
@@ -218,7 +213,8 @@ def train_model(
         save_name = model_name
 
     test_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((256, 256)),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
@@ -232,7 +228,6 @@ def train_model(
     ])
 
     # Loading the training dataset. We need to split it into a training and validation part
-    # We need to do a little trick because the validation set should not use the augmentation.
     train_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
