@@ -90,7 +90,7 @@ class ResNetModule(pl.LightningModule):
         # Create loss module
         self.loss_module = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
-        self.example_input_array = torch.zeros((1, 3, 299, 299), dtype=torch.bfloat16)
+        self.example_input_array = torch.zeros((1, 3, 299, 299))
 
     def on_train_start(self) -> None:
         self.logger.log_hyperparams(self.hparams)
@@ -115,25 +115,29 @@ class ResNetModule(pl.LightningModule):
         if self.duration == TrainDuration.SHORT:
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
         elif self.duration == TrainDuration.DEFAULT:
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=0.1, total_iters=5) 
+            scheduler2 = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
-                mode='max',
-                factor=0.25,
-                patience=1,
-                threshold=0.002,
+                mode='min',
+                factor=0.2,
+                patience=3,
                 threshold_mode='abs'
             )
+            scheduler = optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[5])
+ 
         elif self.duration == TrainDuration.LONG:
-            scheduler = optim.lr_scheduler.ExponentialLR(optimizer, 0.94)
+            scheduler1 = optim.lr_scheduler.ConstantLR(optimizer, factor=0.01, total_iters=5)
+            scheduler2 = optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+            scheduler = optim.lr_scheduler.SequentialLR(optimizer, schedulers=[scheduler1, scheduler2], milestones=[5])
         else:
             raise Exception(f"Unknown duration value: {self.duration}")
 
-        freq = 1 if self.duration != TrainDuration.LONG else 2
+        freq = 1
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_acc",
+                "monitor": "train_loss",
                 "frequency": freq
             }
         }
@@ -188,7 +192,7 @@ def train_model(
     test_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
     # For training, we add some augmentation. Networks are too powerful and would overfit.
@@ -196,7 +200,7 @@ def train_model(
         transforms.RandomHorizontalFlip(),
         transforms.RandomResizedCrop(224, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
         transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
     ])
 
     # Loading the training dataset. We need to split it into a training and validation part
@@ -229,14 +233,14 @@ def train_model(
         default_hp_metric=False,
         log_graph=True
     )
-    stop = 16
+    stop = 40
     if duration == TrainDuration.SHORT:
         epochs = 15
     elif duration == TrainDuration.DEFAULT:
         epochs = 80
     elif duration == TrainDuration.LONG:
         epochs = 200
-        stop = 50
+        stop = 120
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -253,14 +257,14 @@ def train_model(
             DelayedStartEarlyStopping(
                 start_epoch=stop,
                 monitor="val_acc",
-                patience=3,
+                patience=5,
                 min_delta=0.001,
                 verbose=False,
                 mode="max"
             )
         ],
         enable_progress_bar=True,
-        precision="bf16-true",
+        precision="bf16-mixed",
         logger=logger
     )
     trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
@@ -352,9 +356,9 @@ def main():
     if args.duration == TrainDuration.SHORT:
         lr = 0.05
     elif args.duration == TrainDuration.DEFAULT:
-        lr = 0.0025
-    elif args.duration == TrainDuration.LONG:
         lr = 0.025
+    elif args.duration == TrainDuration.LONG:
+        lr = 0.1
     else:
         raise Exception(f"Unknown duration value: {args.duration}")
 
