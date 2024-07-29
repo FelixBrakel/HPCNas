@@ -106,7 +106,7 @@ class ResNetModule(pl.LightningModule):
         return self.model(imgs)
 
     def configure_optimizers(self):
-        # We will support Adam or SGD as optimizers.
+        # legacy, Adam is not used anymore
         if self.hparams.optimizer_name == "Adam":
             optimizer = optim.AdamW(
                 self.parameters(), **self.hparams.optimizer_hparams)
@@ -115,41 +115,29 @@ class ResNetModule(pl.LightningModule):
         else:
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
-        # We will reduce the learning rate by 0.1 after 100 and 150 epochs
-        # scheduler = optim.lr_scheduler.MultiStepLR(
-        #     optimizer, milestones=[15, 30], gamma=0.1)
-        self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1, total_iters=2)
+        # Warmup for numerical stability
+        #self.warmup_scheduler = optim.lr_scheduler.ConstantLR(optimizer, 0.1, total_iters=2)
 
-        if self.duration == TrainDuration.SHORT:
-            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [10], 0.25)
-        elif self.duration == TrainDuration.DEFAULT:
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer,
-                mode='min',
-                factor=0.2,
-                patience=2,
-            )
-
-        elif self.duration == TrainDuration.LONG:
-            scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.92)
-        else:
-            raise Exception(f"Unknown duration value: {self.duration}")
-
-        freq = 1
+        #scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        #    optimizer,
+        #    mode='min',
+        #    factor=0.8,
+        #    patience=2,
+        #)
+        scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_loss",
-                "frequency": freq
+                "monitor": "val_loss"
             }
         }
 
-    def lr_scheduler_step(self, scheduler: LRSchedulerTypeUnion, metric: Optional[Any]) -> None:
-        if self.current_epoch < 2:
-            self.warmup_scheduler.step()
-        else:
-            super().lr_scheduler_step(scheduler, metric)
+    #def lr_scheduler_step(self, scheduler: LRSchedulerTypeUnion, metric: Optional[Any]) -> None:
+    #    if self.current_epoch < 2:
+    #        self.warmup_scheduler.step()
+    #    else:
+    #        super().lr_scheduler_step(scheduler, metric)
 
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
@@ -232,7 +220,7 @@ def train_model(
     test_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "val"), transform=test_transform
     )
-    test_set, val_set = torch.utils.data.random_split(test_set, [9/10, 1/10])
+    train_set, test_set, val_set = torch.utils.data.random_split(train_set, [70/100, 20/100, 10/100])
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
@@ -254,14 +242,15 @@ def train_model(
         default_hp_metric=False,
         log_graph=True
     )
-    stop = 30
     if duration == TrainDuration.SHORT:
-        epochs = 15
+        stop = 10
+        epochs = 40
     elif duration == TrainDuration.DEFAULT:
-        epochs = 80
-    elif duration == TrainDuration.LONG:
         epochs = 200
         stop = 60
+    elif duration == TrainDuration.LONG:
+        epochs = 200
+        stop = 100
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -278,7 +267,7 @@ def train_model(
             DelayedStartEarlyStopping(
                 start_epoch=stop,
                 monitor="val_acc",
-                patience=5,
+                patience=10,
                 min_delta=0.001,
                 verbose=False,
                 mode="max"
@@ -375,11 +364,11 @@ def main():
 
 
     if args.duration == TrainDuration.SHORT:
-        lr = 0.05
+        lr = 0.0025
     elif args.duration == TrainDuration.DEFAULT:
-        lr = 0.025
-    elif args.duration == TrainDuration.LONG:
         lr = 0.05
+    elif args.duration == TrainDuration.LONG:
+        lr = 0.1
     else:
         raise Exception(f"Unknown duration value: {args.duration}")
 
