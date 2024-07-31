@@ -154,7 +154,7 @@ class Inception_ResNet_A(nn.Module):
         )
 
         self.conv = nn.Conv2d(
-            128, 320, 1,
+            128, in_channels, 1,
             stride=1, padding=0, bias=True
         )
         self.relu = nn.ReLU(inplace=True)
