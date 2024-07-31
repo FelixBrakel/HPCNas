@@ -115,13 +115,17 @@ class ResNetModule(pl.LightningModule):
         else:
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
-        #scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        #    optimizer,
-        #    mode='min',
-        #    factor=0.8,
-        #    patience=2,
-        #)
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
+        if self.duration == TrainDuration.LONG:
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer,
+                mode='min',
+                factor=0.8,
+                patience=1,
+            )
+        else:
+            scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
+
+
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
@@ -242,7 +246,7 @@ def train_model(
         stop = 60
     elif duration == TrainDuration.LONG:
         epochs = 200
-        stop = 100
+        stop = 60
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -259,7 +263,7 @@ def train_model(
             DelayedStartEarlyStopping(
                 start_epoch=stop,
                 monitor="val_acc",
-                patience=8,
+                patience=4,
                 min_delta=0.001,
                 verbose=False,
                 mode="max"
@@ -360,7 +364,7 @@ def main():
     elif args.duration == TrainDuration.DEFAULT:
         lr = 0.045
     elif args.duration == TrainDuration.LONG:
-        lr = 0.1
+        lr = 0.045
     else:
         raise Exception(f"Unknown duration value: {args.duration}")
 

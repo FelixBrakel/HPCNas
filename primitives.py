@@ -45,7 +45,7 @@ class CIFARStem(nn.Module):
 
 
 class Stem(nn.Module):
-    def __init__(self, C_in):
+    def __init__(self, C_in, C_out=320):
         super(Stem, self).__init__()
         self.features = nn.Sequential(
             Conv2d(
@@ -107,6 +107,10 @@ class Stem(nn.Module):
                 stride=1, padding=0, bias=False
             )
         )
+        if C_out != 320:
+            self.out = nn.Conv2d(320, C_out, 1, stride=1, padding=0, bias=True)
+        else:
+            self.out = None
 
     def forward(self, x):
         x = self.features(x)
@@ -114,7 +118,10 @@ class Stem(nn.Module):
         x1 = self.branch_1(x)
         x2 = self.branch_2(x)
         x3 = self.branch_3(x)
-        return torch.cat((x0, x1, x2, x3), dim=1)
+        _x = torch.cat((x0, x1, x2, x3), dim=1)
+        if self.out:
+            return self.out(_x)
+        return _x
 
 
 class Inception_ResNet_A(nn.Module):
@@ -271,20 +278,20 @@ class Reduction_A(nn.Module):
 
 
 class Reduction_B(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels, k=256, l=288, m=320, x=256, y=384):
         super(Reduction_B, self).__init__()
         self.branch_0 = nn.Sequential(
-            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 384, 3, stride=2, padding=0, bias=False)
+            Conv2d(in_channels, x, 1, stride=1, padding=0, bias=False),
+            Conv2d(x, y, 3, stride=2, padding=0, bias=False)
         )
         self.branch_1 = nn.Sequential(
-            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 288, 3, stride=2, padding=0, bias=False),
+            Conv2d(in_channels, k, 1, stride=1, padding=0, bias=False),
+            Conv2d(k, l, 3, stride=2, padding=0, bias=False),
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(in_channels, 256, 1, stride=1, padding=0, bias=False),
-            Conv2d(256, 288, 3, stride=1, padding=1, bias=False),
-            Conv2d(288, 320, 3, stride=2, padding=0, bias=False)
+            Conv2d(in_channels, k, 1, stride=1, padding=0, bias=False),
+            Conv2d(k, l, 3, stride=1, padding=1, bias=False),
+            Conv2d(l, m, 3, stride=2, padding=0, bias=False)
         )
         self.branch_3 = nn.MaxPool2d(3, stride=2, padding=0)
 

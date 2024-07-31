@@ -32,10 +32,10 @@ class ParResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            k=256, l=256, m=384, n=384, groups=1):
+            k=128, l=128, m=192, n=192, groups=1):
         super(ParResNet, self).__init__()
 
-        self.stem = Stem(in_channels)
+        self.stem = Stem(in_channels, 160)
 
         self.stage1 = []
         for _ in range(s0_depth):
@@ -47,12 +47,12 @@ class ParResNet(nn.Module):
         for _ in range(s1_depth):
             self.stage2.append(MacroStage(Inception_ResNet_B, groups, 544, 0.1))
         self.stage2 = nn.Sequential(*self.stage2)
-        self.reduction2 = Reduction_B(544)
+        self.reduction2 = Reduction_B(544, 128, 144, 160, 128, 192)
 
         self.stage3 = []
         for _ in range(s2_depth - 1):
             self.stage3.append(MacroStage(Inception_ResNet_C, groups, 1040, 0.2))
-        self.stage3.append(MacroStage(CellC, groups, 1040, 0.2, activation=False))
+        self.stage3.append(MacroStage(Inception_ResNet_C, groups, 1040, 0.2, activation=False))
         self.stage3 = nn.Sequential(*self.stage3)
 
         self.conv = Conv2d(1040, 1536, 1, stride=1, padding=0, bias=False)
