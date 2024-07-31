@@ -238,7 +238,7 @@ def train_model(
         epochs = 40
     elif duration == TrainDuration.DEFAULT:
         epochs = 60
-        stop = 45
+        stop = 60
     elif duration == TrainDuration.LONG:
         epochs = 200
         stop = 100
@@ -357,7 +357,7 @@ def main():
     if args.duration == TrainDuration.SHORT:
         lr = 0.0025
     elif args.duration == TrainDuration.DEFAULT:
-        lr = 0.05
+        lr = 0.045
     elif args.duration == TrainDuration.LONG:
         lr = 0.1
     else:
