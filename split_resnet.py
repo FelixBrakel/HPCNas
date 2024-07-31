@@ -1,6 +1,7 @@
+import torch.nn as nn
 import torch
 
-from parnassia.search_space.primitives import *
+from primitives import Stem, Reduction_A, Reduction_B, Conv2d
 
 
 class SplitReductionA(nn.Module):
@@ -56,18 +57,39 @@ class SplitCellA(nn.Module):
     def __init__(self, groups=1, scale=0.17):
         super(SplitCellA, self).__init__()
         self.scale = scale
-        self.branch_0 = Conv2d(320//groups, 32//groups, 1, stride=1, padding=0, bias=False)
+        self.branch_0 = Conv2d(
+            320//groups, 32//groups, 1, stride=1, padding=0,
+            bias=False
+        )
         self.branch_1 = nn.Sequential(
-            Conv2d(320//groups, 32//groups, 1, stride=1, padding=0, bias=False),
-            Conv2d(32//groups, 32//groups, 3, stride=1, padding=1, bias=False)
+            Conv2d(
+                320//groups, 32//groups, 1, stride=1, padding=0,
+                bias=False
+            ),
+            Conv2d(
+                32//groups, 32//groups, 3, stride=1, padding=1,
+                bias=False
+            )
         )
         self.branch_2 = nn.Sequential(
-            Conv2d(320//groups, 32//groups, 1, stride=1, padding=0, bias=False),
-            Conv2d(32//groups, 48//groups, 3, stride=1, padding=1, bias=False),
-            Conv2d(48//groups, 64//groups, 3, stride=1, padding=1, bias=False)
+            Conv2d(
+                320//groups, 32//groups, 1, stride=1, padding=0,
+                bias=False
+            ),
+            Conv2d(
+                32//groups, 48//groups, 3, stride=1, padding=1,
+                bias=False
+            ),
+            Conv2d(
+                48//groups, 64//groups, 3, stride=1, padding=1,
+                bias=False
+            )
         )
 
-        self.conv = nn.Conv2d(128//groups, 320//groups, 1, stride=1, padding=0, bias=True)
+        self.conv = nn.Conv2d(
+            128//groups, 320//groups, 1, stride=1, padding=0,
+            bias=True
+        )
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):

@@ -15,7 +15,8 @@ from pytorch_lightning.utilities.types import LRSchedulerTypeUnion
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
-from par_resnet import ParResNet, ParParResNet
+from par_resnet import ParResNet
+from par_par_resnet import ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
 
