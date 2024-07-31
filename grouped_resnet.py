@@ -37,7 +37,7 @@ class Grouped_ResNet_A(nn.Module):
             )
         )
         self.conv = nn.Conv2d(
-            128, 320, 1, stride=1, padding=0,
+            128, in_channels, 1, stride=1, padding=0,
             groups=groups, bias=True
         )
         self.relu = nn.ReLU(inplace=True)
@@ -74,7 +74,7 @@ class Grouped_ResNet_B(nn.Module):
             )
         )
         self.conv = nn.Conv2d(
-            384, 1088, 1, stride=1, padding=0,
+            384, in_channels, 1, stride=1, padding=0,
             groups=groups, bias=True
         )
         self.relu = nn.ReLU(inplace=True)
@@ -111,7 +111,7 @@ class Grouped_ResNet_C(nn.Module):
             )
         )
         self.conv = nn.Conv2d(
-            448, 2080, 1, stride=1, padding=0,
+            448, in_channels, 1, stride=1, padding=0,
             groups=groups, bias=True
         )
         self.relu = nn.ReLU(inplace=True)
@@ -134,22 +134,22 @@ class GroupedResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            k=256, l=256, m=384, n=384, groups=1):
+            k=128, l=128, m=192, n=192, groups=1):
         super(GroupedResNet, self).__init__()
         blocks = []
-        blocks.append(Stem(in_channels))
+        blocks.append(Stem(in_channels, 160))
         for i in range(s0_depth):
-            blocks.append(Grouped_ResNet_A(320, 0.17, groups))
-        blocks.append(Reduction_A(320, k, l, m, n))
+            blocks.append(Grouped_ResNet_A(160, 0.17, groups))
+        blocks.append(Reduction_A(160, k, l, m, n))
         for i in range(s1_depth):
-            blocks.append(Grouped_ResNet_B(1088, 0.10, groups))
-        blocks.append(Reduction_B(1088))
+            blocks.append(Grouped_ResNet_B(544, 0.10, groups))
+        blocks.append(Reduction_B(544, 128, 144, 160, 128, 192))
         for i in range(s2_depth):
-            blocks.append(Grouped_ResNet_C(2080, 0.20, groups))
-        blocks.append(Grouped_ResNet_C(2080, activation=False))
+            blocks.append(Grouped_ResNet_C(1040, 0.20, groups))
+        blocks.append(Grouped_ResNet_C(1040, activation=False))
         self.features = nn.Sequential(*blocks)
         self.conv = Conv2d(
-            2080, 1536, 1, stride=1, padding=0,
+            1040, 1536, 1, stride=1, padding=0,
             bias=False
         )
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))

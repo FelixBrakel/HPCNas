@@ -11,7 +11,7 @@ class MacroStage(nn.Module):
         self.partitions = partitions
         self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
         if self.activation:
-            self.relu = nn.ReLU(inplace=True)
+            self.relu = nn.ReLU()
         self.cell_scale = cell_scale
 
     def forward(self, x):
