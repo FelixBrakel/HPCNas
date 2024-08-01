@@ -9,7 +9,7 @@ class MacroStage(nn.Module):
         super(MacroStage, self).__init__()
         self.activation = activation
         self.partitions = partitions
-        self.cells = nn.ModuleList(cell(cell_channels) for _ in range(self.partitions))
+        self.cells = nn.ModuleList(cell(cell_channels, activation=False) for _ in range(self.partitions))
         if self.activation:
             self.relu = nn.ReLU()
         self.cell_scale = cell_scale

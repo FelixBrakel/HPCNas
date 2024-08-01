@@ -125,46 +125,47 @@ class Stem(nn.Module):
 
 
 class Inception_ResNet_A(nn.Module):
-    def __init__(self, in_channels, scale=1.0):
+    def __init__(self, in_channels, scale=1.0, groups=1, activation=True):
         super(Inception_ResNet_A, self).__init__()
         self.scale = scale
-
+        self.activation = activation
         self.branch_0 = Conv2d(
             in_channels, 32, 1,
-            stride=1, padding=0, bias=False
+            stride=1, padding=0, groups=groups, bias=False
         )
 
         self.branch_1 = nn.Sequential(
             Conv2d(
                 in_channels, 32, 1,
-                stride=1, padding=0, bias=False
+                stride=1, padding=0, groups=groups, bias=False
             ),
             Conv2d(
                 32, 32, 3,
-                stride=1, padding=1, bias=False
+                stride=1, padding=1, groups=groups, bias=False
             )
         )
 
         self.branch_2 = nn.Sequential(
             Conv2d(
                 in_channels, 32, 1,
-                stride=1, padding=0, bias=False
+                stride=1, padding=0, groups=groups, bias=False
             ),
             Conv2d(
                 32, 48, 3,
-                stride=1, padding=1, bias=False
+                stride=1, padding=1, groups=groups, bias=False
             ),
             Conv2d(
                 48, 64, 3,
-                stride=1, padding=1, bias=False
+                stride=1, padding=1, groups=groups, bias=False
             )
         )
 
         self.conv = nn.Conv2d(
             128, in_channels, 1,
-            stride=1, padding=0, bias=True
+            stride=1, padding=0, groups=groups, bias=True
         )
-        self.relu = nn.ReLU(inplace=True)
+        if activation:
+            self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         x0 = self.branch_0(x)
@@ -172,82 +173,85 @@ class Inception_ResNet_A(nn.Module):
         x2 = self.branch_2(x)
         x_res = torch.cat((x0, x1, x2), dim=1)
         x_res = self.conv(x_res)
-        return self.relu(x + self.scale * x_res)
+        if self.activation:
+            return self.relu(x + self.scale * x_res)
+        return x + self.scale * x_res
 
 
 class Inception_ResNet_B(nn.Module):
-    def __init__(self, in_channels, scale=1.0):
+    def __init__(self, in_channels, scale=1.0, groups=1, activation=True):
         super(Inception_ResNet_B, self).__init__()
         self.scale = scale
+        self.activation = activation
         self.branch_0 = Conv2d(
             in_channels, 192, 1,
-            stride=1, padding=0, bias=False
+            stride=1, padding=0, groups=groups, bias=False
         )
 
         self.branch_1 = nn.Sequential(
             Conv2d(
                 in_channels, 128, 1,
-                stride=1, padding=0, bias=False
+                stride=1, padding=0, groups=groups, bias=False
             ),
             Conv2d(
                 128, 160, (1, 7),
-                stride=1, padding=(0, 3), bias=False
+                stride=1, padding=(0, 3), groups=groups, bias=False
             ),
             Conv2d(
                 160, 192, (7, 1),
-                stride=1, padding=(3, 0), bias=False
+                stride=1, padding=(3, 0), groups=groups, bias=False
             )
         )
 
         self.conv = nn.Conv2d(
-            384,
-            in_channels,
-            1,
-            stride=1,
-            padding=0,
-            bias=True
+            384, in_channels, 1,
+            stride=1, padding=0, groups=groups, bias=True
         )
-        self.relu = nn.ReLU(inplace=True)
+        if self.activation:
+            self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         x0 = self.branch_0(x)
         x1 = self.branch_1(x)
         x_res = torch.cat((x0, x1), dim=1)
         x_res = self.conv(x_res)
-        return self.relu(x + self.scale * x_res)
+        if self.activation:
+            return self.relu(x + self.scale * x_res)
+        return x + self.scale * x_res
 
 
 class Inception_ResNet_C(nn.Module):
-    def __init__(self, in_channels, scale=1.0, activation=True):
+    def __init__(self, in_channels, scale=1.0, groups=1, activation=True):
         super(Inception_ResNet_C, self).__init__()
         self.scale = scale
         self.activation = activation
 
         self.branch_0 = Conv2d(
             in_channels, 192, 1,
-            stride=1, padding=0, bias=False
+            stride=1, padding=0, groups=groups, bias=False
         )
 
         self.branch_1 = nn.Sequential(
             Conv2d(
                 in_channels, 192, 1,
-                stride=1, padding=0, bias=False
+                stride=1, padding=0, groups=groups, bias=False
             ),
             Conv2d(
                 192, 224, (1, 3),
-                stride=1, padding=(0, 1), bias=False
+                stride=1, padding=(0, 1), groups=groups, bias=False
             ),
             Conv2d(
                 224, 256, (3, 1),
-                stride=1, padding=(1, 0), bias=False
+                stride=1, padding=(1, 0), groups=groups, bias=False
             )
         )
 
         self.conv = nn.Conv2d(
             448, in_channels, 1,
-            stride=1, padding=0, bias=True
+            stride=1, padding=0, groups=groups, bias=True
         )
-        self.relu = nn.ReLU(inplace=True)
+        if self.activation:
+            self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         x0 = self.branch_0(x)

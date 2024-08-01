@@ -20,14 +20,12 @@ from par_par_resnet import ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
 
-# Disgusting globals
 model_dict = {
     'ParResNet': ParResNet,
     'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
     'SplitResNet': SplitResNet
 }
-
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
 DATASET_ROOT = "./data"
@@ -284,7 +282,8 @@ def train_model(
     kwargs['duration'] = duration
     kwargs['dataset'] = dataset
     model = ResNetModule(model_name=model_name, **kwargs)
-    trainer.fit(model, train_loader, val_loader)
+    with torch.autograd.set_detect_anomaly(True):
+        trainer.fit(model, train_loader, val_loader)
     model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
 
     # Test best model on validation and test set

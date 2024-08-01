@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from primitives import Conv2d, Reduction_A, Stem, Reduction_B
+from primitives import Conv2d, Reduction_A, Stem, Reduction_B, Inception_ResNet_A, Inception_ResNet_B, Inception_ResNet_C
 
 
 class Grouped_ResNet_A(nn.Module):
@@ -139,26 +139,28 @@ class GroupedResNet(nn.Module):
         blocks = []
         blocks.append(Stem(in_channels, 160))
         for i in range(s0_depth):
-            blocks.append(Grouped_ResNet_A(160, 0.17, groups))
+            blocks.append(Inception_ResNet_A(160, 0.17, groups))
         blocks.append(Reduction_A(160, k, l, m, n))
         for i in range(s1_depth):
-            blocks.append(Grouped_ResNet_B(544, 0.10, groups))
+            blocks.append(Inception_ResNet_B(544, 0.10, groups))
         blocks.append(Reduction_B(544, 128, 144, 160, 128, 192))
-        for i in range(s2_depth):
-            blocks.append(Grouped_ResNet_C(1040, 0.20, groups))
-        blocks.append(Grouped_ResNet_C(1040, activation=False))
+        for i in range(s2_depth - 1):
+            blocks.append(Inception_ResNet_C(1040, 0.20, groups))
+        blocks.append(Inception_ResNet_C(1040, scale=0.20, activation=False))
         self.features = nn.Sequential(*blocks)
         self.conv = Conv2d(
             1040, 1536, 1, stride=1, padding=0,
             bias=False
         )
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
+        self.dropout = nn.Dropout(0.2)
         self.linear = nn.Linear(1536, classes)
 
     def forward(self, x):
-        x = self.features(x)
-        x = self.conv(x)
-        x = self.global_average_pooling(x)
-        x = x.view(x.size(0), -1)
-        x = self.linear(x)
-        return x
+        _x = self.features(x)
+        _x = self.conv(_x)
+        _x = self.global_average_pooling(_x)
+        _x = _x.view(_x.size(0), -1)
+        _x = self.dropout(_x)
+        _x = self.linear(_x)
+        return _x
