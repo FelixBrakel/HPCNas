@@ -131,7 +131,7 @@ class SplitResNet(nn.Module):
             k=128, l=128, m=192, n=192):
         super(SplitResNet, self).__init__()
         self.groups = groups
-        self.stem = Stem(in_channels)
+        self.stem = Stem(in_channels, 160)
         self.s0_partitions = nn.ModuleList(
             [SplitStage(SplitCellA, 160, s0_depth, groups, 0.17) for _ in range(groups)]
         )
