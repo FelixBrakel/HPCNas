@@ -44,6 +44,30 @@ class CIFARStem(nn.Module):
         return self.seq(x)
 
 
+class SmallStem(nn.Module):
+    def __init__(self, C_in, C_out):
+        super(SmallStem, self).__init__()
+        self.features = nn.Sequential(
+            Conv2d(
+                C_in, 32, 3,
+                stride=2, padding=0, bias=False
+            ),  # 149 x 149 x 32
+            Conv2d(
+                32, 64, 3,
+                stride=1, padding=0, bias=False
+            ),  # 147 x 147 x 32
+            nn.MaxPool2d(3, stride=2, padding=0),  # 73 x 73 x 64
+            Conv2d(
+                64, C_out, 3,
+                stride=1, padding=0, bias=False
+            ),  # 71 x 71 x C_out
+            nn.MaxPool2d(3, stride=2, padding=0)  # 35 x 35 x C_out
+        )
+
+    def forward(self, x):
+        return self.features(x)
+
+
 class Stem(nn.Module):
     def __init__(self, C_in, C_out=320):
         super(Stem, self).__init__()
@@ -262,6 +286,17 @@ class Inception_ResNet_C(nn.Module):
             return self.relu(x + self.scale * x_res)
         return x + self.scale * x_res
 
+
+class Small_Reduction(nn.Module):
+    def __init__(self, C_in, C_out):
+        super(Small_Reduction, self).__init__()
+        self.conv = Conv2d(C_in, C_out - C_in, 3, stride=2, padding=0, bias=True)
+        self.pool = nn.MaxPool2d(3, stride=2, padding=0)
+
+    def forward(self, x):
+        x0 = self.conv(x)
+        x1 = self.pool(x)
+        return torch.cat((x0, x1), dim=1)
 
 class Reduction_A(nn.Module):
     def __init__(self, C_in, k, l, m, n):

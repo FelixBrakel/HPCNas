@@ -116,10 +116,14 @@ class ResNetModule(pl.LightningModule):
         if self.duration == TrainDuration.LONG:
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 optimizer,
-                mode='min',
-                factor=0.8,
+                mode='max',
+                threshold_mode='abs',
+                threshold=0.002,
+                factor=0.84,
                 patience=1,
             )
+            # scheduler = optim.lr_scheduler.StepLR(optimizer, 20, 0.2)
+
         else:
             scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
 
@@ -128,7 +132,7 @@ class ResNetModule(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "val_loss"
+                "monitor": "val_acc"
             }
         }
 
@@ -210,15 +214,18 @@ def train_model(
     train_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
-    test_set = ImageFolder(
-        root=os.path.join(DATASET_ROOT, dataset, "val"), transform=test_transform
-    )
+    # test_set = ImageFolder(
+    #     root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
+    # )
+
     generator = torch.Generator().manual_seed(42)
     train_set, test_set, val_set = torch.utils.data.random_split(train_set, [70/100, 20/100, 10/100], generator)
 
+    # _, test_set, _ = torch.utils.data.random_split(test_set, [7/10, 2/10, 1/10], generator)
+
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers
+        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers, generator=generator
     )
     val_loader = data.DataLoader(
             val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
@@ -243,8 +250,8 @@ def train_model(
         epochs = 60
         stop = 60
     elif duration == TrainDuration.LONG:
-        epochs = 200
-        stop = 60
+        epochs = 100
+        stop = 40
     else:
         raise Exception(f"Unknown duration value: {duration}")
 
@@ -261,8 +268,8 @@ def train_model(
             DelayedStartEarlyStopping(
                 start_epoch=stop,
                 monitor="val_acc",
-                patience=4,
-                min_delta=0.001,
+                patience=9,
+                min_delta=0.01,
                 verbose=False,
                 mode="max"
             )
