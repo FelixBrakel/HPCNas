@@ -19,12 +19,13 @@ from par_resnet import ParResNet
 from par_par_resnet import ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
-
+from zero_resnet import ZeroResNet
 model_dict = {
     'ParResNet': ParResNet,
     'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
-    'SplitResNet': SplitResNet
+    'SplitResNet': SplitResNet,
+    'ZeroResNet': ZeroResNet,
 }
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)

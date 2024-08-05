@@ -14,7 +14,7 @@ class Conv2d(nn.Module):
             stride=stride,
             padding=padding,
             groups=groups,
-            bias=False
+            bias=bias
         )
         self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.1)
         self.relu = nn.ReLU(inplace=True)
@@ -290,7 +290,7 @@ class Inception_ResNet_C(nn.Module):
 class Small_Reduction(nn.Module):
     def __init__(self, C_in, C_out):
         super(Small_Reduction, self).__init__()
-        self.conv = Conv2d(C_in, C_out - C_in, 3, stride=2, padding=0, bias=True)
+        self.conv = Conv2d(C_in, C_out - C_in, 3, stride=2, padding=0, bias=False)
         self.pool = nn.MaxPool2d(3, stride=2, padding=0)
 
     def forward(self, x):

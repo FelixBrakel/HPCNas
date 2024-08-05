@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 
-from primitives import Stem, Reduction_A, Reduction_B, Conv2d
+from primitives import SmallStem, Small_Reduction, Conv2d
 
 
 class SplitCellA(nn.Module):
@@ -131,24 +131,24 @@ class SplitResNet(nn.Module):
             k=128, l=128, m=192, n=192):
         super(SplitResNet, self).__init__()
         self.groups = groups
-        self.stem = Stem(in_channels)
+        self.stem = SmallStem(in_channels, 320)
         self.s0_partitions = nn.ModuleList(
-            [SplitStage(SplitCellA, 160, s0_depth, groups, 0.17) for _ in range(groups)]
+            [SplitStage(SplitCellA, 320, s0_depth, groups, 0.17) for _ in range(groups)]
         )
 
-        self.reduction0 = Reduction_A(160, k, l, m, n)
-
+        # self.reduction0 = Reduction_A(160, k, l, m, n)
+        self.reduction0 = Small_Reduction(320, 1088)
         self.s1_partitions = nn.ModuleList(
-            [SplitStage(SplitCellB, 544, s1_depth, groups, 0.1) for _ in range(groups)]
+            [SplitStage(SplitCellB, 1088, s1_depth, groups, 0.1) for _ in range(groups)]
         )
 
-        self.reduction1 = Reduction_B(544, 128, 144, 160, 128, 192)
-
+        # self.reduction1 = Reduction_B(544, 128, 144, 160, 128, 192)
+        self.reduction1 = Small_Reduction(1088, 2080)
         self.s2_partitions = nn.ModuleList(
-            [SplitStage(SplitCellC, 1040, s2_depth, groups, 0.2) for _ in range(groups)]
+            [SplitStage(SplitCellC, 2080, s2_depth, groups, 0.2) for _ in range(groups)]
         )
 
-        self.conv = Conv2d(1040, 1536, 1, stride=1, padding=0, bias=False)
+        self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(0.2)
         self.linear = nn.Linear(1536, classes)
