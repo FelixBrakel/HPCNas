@@ -130,7 +130,7 @@ class GroupedResNet(nn.Module):
     def __init__(
             self,
             in_channels=3,
-            classes=1000,
+            classes=100,
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,

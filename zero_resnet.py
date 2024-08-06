@@ -1,7 +1,8 @@
 import torch.nn as nn
 import torch
 
-from primitives import Conv2d, CIFARStem, Stem, SmallStem, Small_Reduction, Inception_ResNet_A, Inception_ResNet_B, Inception_ResNet_C
+from primitives import (Conv2d, CIFARStem, Stem, SmallStem, Small_Reduction, Inception_ResNet_A,
+                        Inception_ResNet_B, Inception_ResNet_C, Reduction_A, Reduction_B)
 
 
 class MacroStage(nn.Module):
@@ -28,29 +29,29 @@ class ZeroResNet(nn.Module):
     def __init__(
             self,
             in_channels=3,
-            classes=1000,
+            classes=100,
             s0_depth=0,
             s1_depth=0,
             s2_depth=0,
-            k=128, l=128, m=192, n=192, groups=1):
+            k=256, l=256, m=384, n=384, groups=1):
         super(ZeroResNet, self).__init__()
 
-        # self.stem = Stem(in_channels, 160)
+        self.stem = Stem(in_channels, 320)
         # self.stem = CIFARStem(in_channels, 160)
-        self.stem = SmallStem(in_channels, 320)
+        # self.stem = SmallStem(in_channels, 320)
 
         # self.stage1 = []
         # for _ in range(s0_depth):
         #     self.stage1.append(MacroStage(Inception_ResNet_A, groups, 320, 0.17))
         # self.stage1 = nn.Sequential(*self.stage1)
-        # self.reduction1 = Reduction_A(160, k, l, m, n)
+        self.reduction1 = Reduction_A(320, k, l, m, n)
         # self.reduction1 = Small_Reduction(320, 1088)
 
         # self.stage2 = []
         # for _ in range(s1_depth):
         #     self.stage2.append(MacroStage(Inception_ResNet_B, groups, 1088, 0.1))
         # self.stage2 = nn.Sequential(*self.stage2)
-        # self.reduction2 = Reduction_B(544, 128, 144, 160, 128, 192)
+        self.reduction2 = Reduction_B(1088, 256, 288, 320, 256, 384)
         # self.reduction2 = Small_Reduction(1088, 2080)
 
         # self.stage3 = []
@@ -59,7 +60,7 @@ class ZeroResNet(nn.Module):
         # self.stage3.append(MacroStage(Inception_ResNet_C, groups, 2080, 0.2, activation=False))
         # self.stage3 = nn.Sequential(*self.stage3)
 
-        self.conv = Conv2d(320, 1536, 1, stride=1, padding=0, bias=False)
+        self.conv = Conv2d(2080, 1536, 1, stride=1, padding=0, bias=False)
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(0.2)
         self.linear = nn.Linear(1536, classes)
@@ -67,9 +68,9 @@ class ZeroResNet(nn.Module):
     def forward(self, x):
         _x = self.stem(x)
         # _x = self.stage1(_x)
-        # _x = self.reduction1(_x)
+        _x = self.reduction1(_x)
         # _x = self.stage2(_x)
-        # _x = self.reduction2(_x)
+        _x = self.reduction2(_x)
         # _x = self.stage3(_x)
 
         _x = self.conv(_x)

@@ -20,12 +20,15 @@ from par_par_resnet import ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
 from zero_resnet import ZeroResNet
+from resnet import ResNet
+
 model_dict = {
     'ParResNet': ParResNet,
     'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
     'SplitResNet': SplitResNet,
-    'ZeroResNet': ZeroResNet,
+    'ZeroResNet_Regular_Reduction': ZeroResNet,
+    'ResNet': ResNet,
 }
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
@@ -220,7 +223,8 @@ def train_model(
     # )
 
     generator = torch.Generator().manual_seed(42)
-    train_set, test_set, val_set = torch.utils.data.random_split(train_set, [70/100, 20/100, 10/100], generator)
+    # generator = None
+    train_set, test_set, val_set = torch.utils.data.random_split(train_set, [70/100, 20/100, 10/100])
 
     # _, test_set, _ = torch.utils.data.random_split(test_set, [7/10, 2/10, 1/10], generator)
 
@@ -229,7 +233,7 @@ def train_model(
         train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers, generator=generator
     )
     val_loader = data.DataLoader(
-            val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+        val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
     )
     test_loader = data.DataLoader(
         test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
