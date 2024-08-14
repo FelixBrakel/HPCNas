@@ -1,7 +1,6 @@
 import torch.nn as nn
-import torch
 
-from primitives import Conv2d, CIFARStem, Stem, SmallStem, Small_Reduction, Inception_ResNet_A, Inception_ResNet_B, Inception_ResNet_C
+from primitives import Conv2d, Stem, Reduction_A, Reduction_B, Inception_ResNet_A, Inception_ResNet_B, Inception_ResNet_C
 
 
 class MacroStage(nn.Module):
@@ -32,26 +31,24 @@ class ParResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            k=128, l=128, m=192, n=192, groups=1):
+            k=256, l=256, m=384, n=384, groups=1):
         super(ParResNet, self).__init__()
 
-        # self.stem = Stem(in_channels, 160)
-        # self.stem = CIFARStem(in_channels, 160)
-        self.stem = SmallStem(in_channels, 320)
+        self.stem = Stem(in_channels, 320)
 
         self.stage1 = []
         for _ in range(s0_depth):
             self.stage1.append(MacroStage(Inception_ResNet_A, groups, 320, 0.17))
         self.stage1 = nn.Sequential(*self.stage1)
-        # self.reduction1 = Reduction_A(160, k, l, m, n)
-        self.reduction1 = Small_Reduction(320, 1088)
+        self.reduction1 = Reduction_A(320, k, l, m, n)
+        # self.reduction1 = Small_Reduction(320, 1088)
 
         self.stage2 = []
         for _ in range(s1_depth):
             self.stage2.append(MacroStage(Inception_ResNet_B, groups, 1088, 0.1))
         self.stage2 = nn.Sequential(*self.stage2)
-        # self.reduction2 = Reduction_B(544, 128, 144, 160, 128, 192)
-        self.reduction2 = Small_Reduction(1088, 2080)
+        self.reduction2 = Reduction_B(1088)
+        # self.reduction2 = Small_Reduction(1088, 2080)
 
         self.stage3 = []
         for _ in range(s2_depth - 1):

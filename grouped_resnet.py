@@ -134,22 +134,22 @@ class GroupedResNet(nn.Module):
             s0_depth=10,
             s1_depth=20,
             s2_depth=10,
-            k=128, l=128, m=192, n=192, groups=1):
+            k=256, l=256, m=384, n=384, groups=1):
         super(GroupedResNet, self).__init__()
         blocks = []
-        blocks.append(Stem(in_channels, 160))
+        blocks.append(Stem(in_channels, 320))
         for i in range(s0_depth):
-            blocks.append(Inception_ResNet_A(160, 0.17, groups))
-        blocks.append(Reduction_A(160, k, l, m, n))
+            blocks.append(Inception_ResNet_A(320, 0.17, groups))
+        blocks.append(Reduction_A(320, k, l, m, n))
         for i in range(s1_depth):
-            blocks.append(Inception_ResNet_B(544, 0.10, groups))
-        blocks.append(Reduction_B(544, 128, 144, 160, 128, 192))
+            blocks.append(Inception_ResNet_B(1088, 0.10, groups))
+        blocks.append(Reduction_B(1088))
         for i in range(s2_depth - 1):
-            blocks.append(Inception_ResNet_C(1040, 0.20, groups))
-        blocks.append(Inception_ResNet_C(1040, scale=0.20, activation=False))
+            blocks.append(Inception_ResNet_C(2080, 0.20, groups))
+        blocks.append(Inception_ResNet_C(2080, scale=0.20, activation=False))
         self.features = nn.Sequential(*blocks)
         self.conv = Conv2d(
-            1040, 1536, 1, stride=1, padding=0,
+            2080, 1536, 1, stride=1, padding=0,
             bias=False
         )
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))

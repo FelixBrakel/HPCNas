@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional, Any
 
 import torchmetrics
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -19,15 +18,25 @@ from par_resnet import ParResNet
 from par_par_resnet import ParParResNet
 from grouped_resnet import GroupedResNet
 from split_resnet import SplitResNet
-from zero_resnet import ZeroResNet
+from base_resnet import BaseResNet
 from resnet import ResNet
+from base_resnet_768 import BaseResNet as BaseResNet768
+from base_resnet_768_half import BaseResNet as BaseResNetHalf
+from base_resnet_true_half import BaseResNet as BaseResNetTrueHalf
+from base_resnet_half_quart import BaseResNet as BaseResNetHalfQuart
+from base_resnet_quart_quart import BaseResNetQuartQuart
 
 model_dict = {
     'ParResNet': ParResNet,
     'ParParResNet': ParParResNet,
     'GroupedResNet': GroupedResNet,
     'SplitResNet': SplitResNet,
-    'ZeroResNet_Regular_Reduction': ZeroResNet,
+    'BaseResNet': BaseResNet,
+    'BaseResNet768': BaseResNet768,
+    'BaseResNetHalf': BaseResNetHalf,
+    'BaseResNetTrueHalf': BaseResNetTrueHalf,
+    'BaseResNetHalfQuart': BaseResNetHalfQuart,
+    'BaseResNetQuartQuart': BaseResNetQuartQuart,
     'ResNet': ResNet,
 }
 
@@ -185,6 +194,7 @@ class ResNetModule(pl.LightningModule):
 def train_model(
     model_name,
     dataset="imagenet",
+    seed=42,
     workers=0,
     save_name=None,
     nodes=2,
@@ -222,15 +232,18 @@ def train_model(
     #     root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
     # )
 
-    generator = torch.Generator().manual_seed(42)
+    generator = torch.Generator().manual_seed(seed)
     # generator = None
-    train_set, test_set, val_set = torch.utils.data.random_split(train_set, [70/100, 20/100, 10/100])
+    train_set, test_set, val_set = torch.utils.data.random_split(
+        train_set, [70/100, 20/100, 10/100], generator=generator
+    )
 
     # _, test_set, _ = torch.utils.data.random_split(test_set, [7/10, 2/10, 1/10], generator)
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
-        train_set, batch_size=256, shuffle=True, drop_last=True, pin_memory=True, num_workers=workers, generator=generator
+        train_set, batch_size=256, shuffle=True, drop_last=True, num_workers=workers,
+        generator=generator, pin_memory=True
     )
     val_loader = data.DataLoader(
         val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
@@ -255,7 +268,7 @@ def train_model(
         epochs = 60
         stop = 60
     elif duration == TrainDuration.LONG:
-        epochs = 100
+        epochs = 70
         stop = 40
     else:
         raise Exception(f"Unknown duration value: {duration}")
@@ -360,6 +373,13 @@ def main():
     )
 
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed for randomness"
+    )
+
+    parser.add_argument(
         "--duration",
         type=TrainDuration,
         choices=list(TrainDuration),
@@ -385,6 +405,7 @@ def main():
         nodes=args.nodes,
         workers=args.workers,
         dataset=args.dataset,
+        seed=args.seed,
         model_hparams={
             "in_channels": 3,
             "classes": 100,
