@@ -179,7 +179,6 @@ class BaseResNetEighth(nn.Module):
 
     def forward(self, x):
         _x = self.features(x)
-        _x = self.conv(_x)
         _x = self.global_average_pooling(_x)
         _x = _x.view(_x.size(0), -1)
         _x = self.dropout(_x)

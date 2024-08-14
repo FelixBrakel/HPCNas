@@ -25,6 +25,7 @@ from base_resnet_768_half import BaseResNet as BaseResNetHalf
 from base_resnet_true_half import BaseResNet as BaseResNetTrueHalf
 from base_resnet_half_quart import BaseResNet as BaseResNetHalfQuart
 from base_resnet_quart_quart import BaseResNetQuartQuart
+from base_resnet_1_8 import BaseResNetEighth
 
 model_dict = {
     'ParResNet': ParResNet,
@@ -37,6 +38,7 @@ model_dict = {
     'BaseResNetTrueHalf': BaseResNetTrueHalf,
     'BaseResNetHalfQuart': BaseResNetHalfQuart,
     'BaseResNetQuartQuart': BaseResNetQuartQuart,
+    'BaseResNetEighth': BaseResNetEighth,
     'ResNet': ResNet,
 }
 
