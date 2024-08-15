@@ -1,6 +1,5 @@
 from enum import Enum
 
-import torchmetrics
 from pytorch_lightning.loggers import TensorBoardLogger
 import pytorch_lightning as pl
 import torch
@@ -58,7 +57,6 @@ def setup():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-    #torch.set_default_device("cuda:0")
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.set_float32_matmul_precision('medium')
 
@@ -99,8 +97,7 @@ class ResNetModule(pl.LightningModule):
         """
         super().__init__()
         self.duration = duration
-        self.acc_metric = torchmetrics.Accuracy("multiclass", num_classes=100)
-        self.conf_metric = torchmetrics.ConfusionMatrix("multiclass", num_classes=100)
+
         # Exports the hyperparameters to a YAML file, and create "self.hparams" namespace
         self.save_hyperparameters()
         # Create model
@@ -111,11 +108,9 @@ class ResNetModule(pl.LightningModule):
         self.example_input_array = torch.zeros((1, 3, 299, 299))
         self.warmup_scheduler = None
 
-    def on_train_start(self) -> None:
-        self.logger.log_hyperparams(self.hparams)
-
     def forward(self, imgs):
         # Forward function that is run when visualizing the graph
+        torch.compiler.cudagraph_mark_step_begin()
         return self.model(imgs)
 
     def configure_optimizers(self):
@@ -123,8 +118,6 @@ class ResNetModule(pl.LightningModule):
         if self.hparams.optimizer_name == "Adam":
             optimizer = optim.AdamW(
                 self.parameters(), **self.hparams.optimizer_hparams)
-        elif self.hparams.optimizer_name == "SGD":
-            optimizer = optim.SGD(self.parameters(), **self.hparams.optimizer_hparams)
         else:
             assert False, f"Unknown optimizer: \"{self.hparams.optimizer_name}\""
 
@@ -137,11 +130,8 @@ class ResNetModule(pl.LightningModule):
                 factor=0.84,
                 patience=1,
             )
-            # scheduler = optim.lr_scheduler.StepLR(optimizer, 20, 0.2)
-
         else:
             scheduler = optim.lr_scheduler.StepLR(optimizer, 2, 0.94)
-
 
         return {
             "optimizer": optimizer,
@@ -167,30 +157,17 @@ class ResNetModule(pl.LightningModule):
         imgs, labels = batch
         preds = self.model(imgs)
         loss = self.loss_module(preds, labels)
+        self.log('val_loss', loss, sync_dist=True)
         acc = (labels == preds.argmax(dim=-1)).float().mean()
-
         # By default logs it per epoch (weighted average over batches)
         self.log('val_acc', acc, sync_dist=True)
-        self.log('val_loss', loss, sync_dist=True)
 
     def test_step(self, batch, batch_idx):
         imgs, labels = batch
         preds = self.model(imgs).argmax(dim=-1)
         acc = (labels == preds).float().mean()
-        self.acc_metric(preds, labels)
-        self.conf_metric(preds, labels)
-        # By default logs it per epoch (weighted average over batches), and returns it afterwards
         self.log('test_acc', acc, sync_dist=True)
 
-    def on_test_end(self) -> None:
-        acc = self.acc_metric.compute()
-        print(f"accuracy metric: {acc}")
-        fig, ax = self.conf_metric.plot(cmap="YlGnBu")
-        # fig.set_dpi(400)
-        fig.set_size_inches(80, 70)
-        fig.set_layout_engine("compressed")
-        fig.show()
-        fig.savefig("conf.png")
 
 
 def train_model(
@@ -211,13 +188,6 @@ def train_model(
     if save_name is None:
         save_name = model_name
 
-    test_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-    ])
-
     # For training, we add some augmentation. Networks are too powerful and would overfit.
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
@@ -230,17 +200,12 @@ def train_model(
     train_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
-    # test_set = ImageFolder(
-    #     root=os.path.join(DATASET_ROOT, dataset, "train"), transform=test_transform
-    # )
 
     generator = torch.Generator().manual_seed(seed)
     # generator = None
     train_set, test_set, val_set = torch.utils.data.random_split(
         train_set, [70/100, 20/100, 10/100], generator=generator
     )
-
-    # _, test_set, _ = torch.utils.data.random_split(test_set, [7/10, 2/10, 1/10], generator)
 
     # We define a set of data loaders that we can use for various purposes later.
     train_loader = data.DataLoader(
@@ -253,6 +218,7 @@ def train_model(
     test_loader = data.DataLoader(
         test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
     )
+
     logger = TensorBoardLogger(
         save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
         name=f""
@@ -261,8 +227,8 @@ def train_model(
              f"{kwargs['model_hparams']['s1_depth']}_"
              f"{kwargs['model_hparams']['s2_depth']}_{duration}",
         default_hp_metric=False,
-        log_graph=True
     )
+
     if duration == TrainDuration.SHORT:
         stop = 10
         epochs = 40
@@ -298,19 +264,13 @@ def train_model(
         precision="bf16-mixed",
         logger=logger
     )
-    trainer.logger._log_graph = True  # If True, we plot the computation graph in tensorboard
 
-    # Check whether pretrained model exists. If yes, load it and skip training
-    # pretrained_filename = os.path.join(CHECKPOINT_PATH, save_name + ".ckpt")
-    # if os.path.isfile(pretrained_filename):
-    #     print(f"Found pretrained model at {pretrained_filename}, loading...")
-    #     model = ResNetModule.load_from_checkpoint(pretrained_filename)
-    # else:
     kwargs['duration'] = duration
     kwargs['dataset'] = dataset
-    model = ResNetModule(model_name=model_name, **kwargs)
-    with torch.autograd.set_detect_anomaly(True):
-        trainer.fit(model, train_loader, val_loader)
+    model = ResNetModule(model_name=model_name, **kwargs).cuda()
+    model = torch.compile(model, options={"shape_padding": True})
+
+    trainer.fit(model, train_loader, val_loader)
     model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
 
     # Test best model on validation and test set

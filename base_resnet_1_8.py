@@ -169,16 +169,17 @@ class BaseResNetEighth(nn.Module):
         if s2_depth > 0:
             blocks.append(Inception_ResNet_C_Eighth(260, scale=0.20, activation=False))
         self.features = nn.Sequential(*blocks)
-        # self.conv = Conv2d(
-        #     520, 384, 1, stride=1, padding=0,
-        #     bias=False
-        # )
+        self.conv = Conv2d(
+            260, 192, 1, stride=1, padding=0,
+            bias=False
+        )
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
         self.dropout = nn.Dropout(0.2)
-        self.linear = nn.Linear(260, classes)
+        self.linear = nn.Linear(192, classes)
 
     def forward(self, x):
         _x = self.features(x)
+        _x = self.conv(_x)
         _x = self.global_average_pooling(_x)
         _x = _x.view(_x.size(0), -1)
         _x = self.dropout(_x)
