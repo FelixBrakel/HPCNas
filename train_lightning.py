@@ -199,17 +199,23 @@ def train_model(
     ])
 
     # Loading the training dataset. We need to split it into a training and validation part
-    train_set = ImageFolder(
+    full_set = ImageFolder(
         root=os.path.join(DATASET_ROOT, dataset, "train"), transform=train_transform
     )
 
     generator = torch.Generator().manual_seed(seed)
     kf = KFold(n_splits=3, shuffle=True, random_state=seed)
+    # train_set, test_set, val_set = torch.utils.data.random_split(
+    #     train_set, [7/10, 2/10, 1/10], generator=generator
+    # )
 
-    for train_set, test_set in kf.split(train_set):
+    for train_set_idx, test_set_idx in kf.split(full_set):
         for _ in range(repetitions):
+            test_set = data.Subset(full_set, test_set_idx)
+            train_set = data.Subset(full_set, train_set_idx)
+
             test_set, val_set = torch.utils.data.random_split(
-                train_set, [67/100, 33/100], generator=generator
+                test_set, [67/100, 33/100], generator=generator
             )
             # We define a set of data loaders that we can use for various purposes later.
             train_loader = data.DataLoader(
@@ -272,7 +278,7 @@ def train_model(
             kwargs['duration'] = duration
             kwargs['dataset'] = dataset
             model = ResNetModule(model_name=model_name, **kwargs).cuda()
-            # model = torch.compile(model, options={"shape_padding": True})
+            model = torch.compile(model, options={"shape_padding": True})
 
             trainer.fit(model, train_loader, val_loader)
             model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
