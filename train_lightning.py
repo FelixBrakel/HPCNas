@@ -9,6 +9,7 @@ import torch.utils.data as data
 import argparse
 import os
 
+from sklearn.model_selection import KFold
 from pytorch_lightning.utilities.types import LRSchedulerTypeUnion
 from torchvision.datasets import ImageFolder
 from torchvision import transforms
@@ -174,6 +175,7 @@ def train_model(
     model_name,
     dataset="imagenet",
     seed=42,
+    repetitions=3,
     workers=0,
     save_name=None,
     nodes=2,
@@ -202,81 +204,81 @@ def train_model(
     )
 
     generator = torch.Generator().manual_seed(seed)
-    # generator = None
-    train_set, test_set, val_set = torch.utils.data.random_split(
-        train_set, [70/100, 20/100, 10/100], generator=generator
-    )
+    kf = KFold(n_splits=3, shuffle=True, random_state=seed)
 
-    # We define a set of data loaders that we can use for various purposes later.
-    train_loader = data.DataLoader(
-        train_set, batch_size=256, shuffle=True, drop_last=True, num_workers=workers,
-        generator=generator, pin_memory=True
-    )
-    val_loader = data.DataLoader(
-        val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
-    )
-    test_loader = data.DataLoader(
-        test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
-    )
-
-    logger = TensorBoardLogger(
-        save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
-        name=f""
-             f"{kwargs['model_hparams']['groups']}_"
-             f"{kwargs['model_hparams']['s0_depth']}_"
-             f"{kwargs['model_hparams']['s1_depth']}_"
-             f"{kwargs['model_hparams']['s2_depth']}_{duration}",
-        default_hp_metric=False,
-    )
-
-    if duration == TrainDuration.SHORT:
-        stop = 10
-        epochs = 40
-    elif duration == TrainDuration.DEFAULT:
-        epochs = 60
-        stop = 60
-    elif duration == TrainDuration.LONG:
-        epochs = 70
-        stop = 40
-    else:
-        raise Exception(f"Unknown duration value: {duration}")
-
-    # Create a PyTorch Lightning trainer with the generation callback
-    trainer = pl.Trainer(
-        default_root_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
-        accelerator="gpu",
-        devices="auto",
-        num_nodes=nodes,
-        max_epochs=epochs,
-        callbacks=[
-            ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
-            LearningRateMonitor("epoch"),
-            DelayedStartEarlyStopping(
-                start_epoch=stop,
-                monitor="val_acc",
-                patience=9,
-                min_delta=0.01,
-                verbose=False,
-                mode="max"
+    for train_set, test_set in kf.split(train_set):
+        for _ in range(repetitions):
+            test_set, val_set = torch.utils.data.random_split(
+                train_set, [67/100, 33/100], generator=generator
             )
-        ],
-        enable_progress_bar=True,
-        precision="bf16-mixed",
-        logger=logger
-    )
+            # We define a set of data loaders that we can use for various purposes later.
+            train_loader = data.DataLoader(
+                train_set, batch_size=256, shuffle=True, drop_last=True, num_workers=workers,
+                generator=generator, pin_memory=True
+            )
+            val_loader = data.DataLoader(
+                val_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+            )
+            test_loader = data.DataLoader(
+                test_set, batch_size=256, shuffle=False, drop_last=False, num_workers=workers
+            )
 
-    kwargs['duration'] = duration
-    kwargs['dataset'] = dataset
-    model = ResNetModule(model_name=model_name, **kwargs).cuda()
-    model = torch.compile(model, options={"shape_padding": True})
+            logger = TensorBoardLogger(
+                save_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
+                name=f""
+                     f"{kwargs['model_hparams']['groups']}_"
+                     f"{kwargs['model_hparams']['s0_depth']}_"
+                     f"{kwargs['model_hparams']['s1_depth']}_"
+                     f"{kwargs['model_hparams']['s2_depth']}_{duration}",
+                default_hp_metric=False,
+            )
 
-    trainer.fit(model, train_loader, val_loader)
-    model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
+            if duration == TrainDuration.SHORT:
+                stop = 10
+                epochs = 40
+            elif duration == TrainDuration.DEFAULT:
+                epochs = 60
+                stop = 60
+            elif duration == TrainDuration.LONG:
+                epochs = 70
+                stop = 40
+            else:
+                raise Exception(f"Unknown duration value: {duration}")
 
-    # Test best model on validation and test set
-    test_result = trainer.test(model, test_loader, verbose=False)
+            # Create a PyTorch Lightning trainer with the generation callback
+            trainer = pl.Trainer(
+                default_root_dir=os.path.join(CHECKPOINT_PATH, save_name, dataset),
+                accelerator="gpu",
+                devices="auto",
+                num_nodes=nodes,
+                max_epochs=epochs,
+                callbacks=[
+                    ModelCheckpoint(save_weights_only=True, mode="max", monitor="val_acc"),
+                    LearningRateMonitor("epoch"),
+                    DelayedStartEarlyStopping(
+                        start_epoch=stop,
+                        monitor="val_acc",
+                        patience=9,
+                        min_delta=0.01,
+                        verbose=False,
+                        mode="max"
+                    )
+                ],
+                enable_progress_bar=True,
+                precision="bf16-mixed",
+                logger=logger
+            )
 
-    return model, test_result
+            kwargs['duration'] = duration
+            kwargs['dataset'] = dataset
+            model = ResNetModule(model_name=model_name, **kwargs).cuda()
+            # model = torch.compile(model, options={"shape_padding": True})
+
+            trainer.fit(model, train_loader, val_loader)
+            model = ResNetModule.load_from_checkpoint(trainer.checkpoint_callback.best_model_path)
+
+            # Test best model on validation and test set
+            test_result = trainer.test(model, test_loader, verbose=False)
 
 
 def main():
@@ -342,6 +344,13 @@ def main():
     )
 
     parser.add_argument(
+        "--repetitions",
+        type=int,
+        default=3,
+        help="Amount of repetitions per fold"
+    )
+
+    parser.add_argument(
         "--duration",
         type=TrainDuration,
         choices=list(TrainDuration),
@@ -362,12 +371,13 @@ def main():
         raise Exception(f"Unknown duration value: {args.duration}")
 
     setup()
-    model, results = train_model(
+    train_model(
         model_name=args.model,
         nodes=args.nodes,
         workers=args.workers,
         dataset=args.dataset,
         seed=args.seed,
+        repetitions=args.repetitions,
         model_hparams={
             "in_channels": 3,
             "classes": 100,

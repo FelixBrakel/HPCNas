@@ -31,18 +31,15 @@ if [[ ! -f "$PARAMETERS_FILE" ]]; then
 fi
 
 # Define the static part of the srun command
-base_srun_command="srun --input none -C A4000 --nodes=1 --ntasks-per-node=4 --gres=gpu:4 --time=300 python train_lightning.py --nodes 1 --workers 16 --dataset $DATASET --model $MODEL_NAME --duration $DURATION --seed $SEED"
+base_srun_command="srun --input none -C A4000 --nodes=1 --ntasks-per-node=4 --gres=gpu:4 --time=300 python train_lightning.py --nodes 1 --workers 16 --dataset $DATASET --model $MODEL_NAME --duration $DURATION --seed $SEED --repetitions $REPETITIONS"
 
-# Run the command for the specified number of repetitions
-for (( i=0; i<$REPETITIONS; i++ )); do
-  while IFS=' ' read -r groups s0 s1 s2; do
-    # Construct the full srun command with dynamic parameters
-    full_srun_command="$base_srun_command --groups $groups --s0 $s0 --s1 $s1 --s2 $s2"
+while IFS=' ' read -r groups s0 s1 s2; do
+  # Construct the full srun command with dynamic parameters
+  full_srun_command="$base_srun_command --groups $groups --s0 $s0 --s1 $s1 --s2 $s2"
 
-    # Run the srun command
-    echo "Running: $full_srun_command (Repetition $((i+1))/$REPETITIONS)"
-    $full_srun_command
-  done < "$PARAMETERS_FILE"
-done
+  # Run the srun command
+   echo "Running: $full_srun_command (Repetition $((i+1))/$REPETITIONS)"
+  $full_srun_command
+done < "$PARAMETERS_FILE"
 
 echo "All srun commands executed."
